@@ -1,0 +1,45 @@
+{
+  "site": {
+    "name": "Embodied AI Atlas",
+    "subtitle": "具身智能知识图谱 · Personal Learning Studio",
+    "version": "0.1.0",
+    "asOf": "2026-11-19"
+  },
+  "sections": [
+    {"id":"start","name":"知识总览","eyebrow":"START HERE"},
+    {"id":"data","name":"数据与数据工程","eyebrow":"DATA ENGINE"},
+    {"id":"models","name":"模型与训练","eyebrow":"MODEL & LEARNING"},
+    {"id":"evaluation","name":"评估与闭环","eyebrow":"EVALUATION"},
+    {"id":"industry","name":"公司与 Data Recipe","eyebrow":"INDUSTRY INTELLIGENCE"},
+    {"id":"foundations","name":"机器人技术基础","eyebrow":"ROBOTICS FOUNDATIONS"},
+    {"id":"reference","name":"知识连接与资源","eyebrow":"REFERENCE"}
+  ],
+  "pages": [
+    {"id":"overview","section":"start","title":"从训练数据理解 Embodied AI","file":"overview.md","summary":"从能力需求、系统层级到数据闭环，建立整个领域的心智模型。","tags":["全景","Embodied AI","VLA"],"related":["data-taxonomy","data-recipe","data-flywheel"],"maturity":"核心导读"},
+    {"id":"data-taxonomy","section":"data","title":"数据来源与分类体系","file":"data-taxonomy.md","summary":"真实机器人、遥操、自主 rollout、人类视频、UMI、仿真及生成式数据。","tags":["Data","Teleoperation","UMI","Simulation"],"related":["data-comparison","data-pipeline","learning-paradigms"],"maturity":"已整理"},
+    {"id":"data-comparison","section":"data","title":"数据横向比较与训练价值","file":"data-comparison.md","summary":"从动作标签、成本、规模、多样性和泛化价值评估数据。","tags":["Data","Trade-offs","Quality"],"related":["data-taxonomy","data-recipe","quality-evaluation"],"maturity":"已整理"},
+    {"id":"data-pipeline","section":"data","title":"采集、处理与 Dataset Schema","file":"data-pipeline.md","summary":"Episode、观测与动作、时间同步、MCAP、Parquet、视频与 LeRobot。","tags":["Dataset","MCAP","Schema","Episode"],"related":["robotics-stack","data-recipe","quality-evaluation"],"maturity":"已整理"},
+    {"id":"data-recipe","section":"data","title":"Data Recipe：数据怎么配","file":"data-recipe.md","summary":"阶段、混合比例、采样、目标函数与模型能力的对应关系。","tags":["Data Recipe","Pretraining","Post-training"],"related":["training-loop","industry-landscape","data-flywheel"],"maturity":"核心专题"},
+    {"id":"training-loop","section":"models","title":"从一条示范到一次模型训练","file":"training-loop.md","summary":"从遥操 episode 到 BC loss、action chunk 和模型更新。","tags":["Behavior Cloning","Action","Training"],"related":["learning-paradigms","model-architecture","data-pipeline"],"maturity":"已整理"},
+    {"id":"learning-paradigms","section":"models","title":"IL、RL 与 World Model","file":"learning-paradigms.md","summary":"模仿学习、强化学习、世界模型以及 IDM 如何协同。","tags":["IL","RL","World Model","IDM"],"related":["training-loop","model-architecture","data-flywheel"],"maturity":"已整理"},
+    {"id":"model-architecture","section":"models","title":"VLA、Diffusion 与 Flow Matching","file":"model-architecture.md","summary":"理解模型架构与动作表示；为算法深挖预留可扩展章节。","tags":["VLA","Diffusion","Flow Matching","Action Chunk"],"related":["learning-paradigms","training-loop","company-pi"],"maturity":"概念速览"},
+    {"id":"quality-evaluation","section":"evaluation","title":"Data Quality 与模型评估","file":"quality-evaluation.md","summary":"完整性、有效性、多样性、任务成功率与泛化评估。","tags":["Metrics","Evaluation","Quality"],"related":["data-comparison","data-pipeline","data-flywheel"],"maturity":"已整理"},
+    {"id":"data-flywheel","section":"evaluation","title":"Data Flywheel 与部署反馈","file":"data-flywheel.md","summary":"真实部署、失败采集、纠错、持续改进和数据闭环。","tags":["Data Flywheel","Deployment","Feedback"],"related":["quality-evaluation","data-recipe","overview"],"maturity":"已整理"},
+    {"id":"industry-landscape","section":"industry","title":"行业路线总览与比较","file":"industry-landscape.md","summary":"八家公司在视频、遥操、仿真、机器人经验上的不同配方。","tags":["Companies","Data Recipe","Research"],"related":["company-nvidia","company-pi","company-figure","company-1x"],"maturity":"研究快照"},
+    {"id":"company-nvidia","section":"industry","title":"NVIDIA · GR00T 2","file":"company-nvidia.md","summary":"402,730h 人类视频、10,184h UMI 与 23,500h 遥操。","tags":["NVIDIA","GR00T","WAM"],"related":["data-recipe","company-agibot"],"maturity":"研究快照"},
+    {"id":"company-pi","section":"industry","title":"Physical Intelligence · π 系列","file":"company-pi.md","summary":"跨机器人预训练、机器人自主经验与可控策略。","tags":["Physical Intelligence","π0","RL"],"related":["learning-paradigms","company-toyota"],"maturity":"研究快照"},
+    {"id":"company-figure","section":"industry","title":"Figure · Helix / Index","file":"company-figure.md","summary":"全球人类行为视频、全身运动与具身迁移。","tags":["Figure","Helix","Index"],"related":["data-taxonomy","company-nvidia"],"maturity":"研究快照"},
+    {"id":"company-1x","section":"industry","title":"1X · NEO / World Model","file":"company-1x.md","summary":"从生成未来视频到预测执行动作的训练路线。","tags":["1X","World Model","IDM"],"related":["learning-paradigms","company-agibot"],"maturity":"研究快照"},
+    {"id":"company-google","section":"industry","title":"Google DeepMind · Gemini Robotics","file":"company-google.md","summary":"VLM 基础、多机器人迁移与 AI 辅助仿真。","tags":["Google DeepMind","Gemini Robotics","Simulation"],"related":["company-nvidia","model-architecture"],"maturity":"研究快照"},
+    {"id":"company-toyota","section":"industry","title":"Toyota Research Institute · LBM","file":"company-toyota.md","summary":"468h 遥操、45h 仿真、32h UMI 与 1,150h 开放数据。","tags":["Toyota","LBM","Diffusion"],"related":["data-recipe","model-architecture"],"maturity":"研究快照"},
+    {"id":"company-agibot","section":"industry","title":"AgiBot · GE-Act 2.0","file":"company-agibot.md","summary":"World-Action 联合训练与不同数据监督信号。","tags":["AgiBot","World-Action","IDM"],"related":["company-nvidia","company-1x"],"maturity":"研究快照"},
+    {"id":"company-skild","section":"industry","title":"Skild AI · S1","file":"company-skild.md","summary":"混合数据引擎与单视频示范的 In-Context Learning。","tags":["Skild AI","ICL","Data Engine"],"related":["data-comparison","company-figure"],"maturity":"研究快照"},
+    {"id":"robotics-stack","section":"foundations","title":"机器人数据链与基础系统","file":"robotics-stack.md","summary":"相机、IMU、编码器、URDF、TF、VIO、SLAM 如何串起来。","tags":["Robotics","IMU","VIO","SLAM"],"related":["geometry-and-frames","sensors-and-estimation","data-pipeline"],"maturity":"概念速览"},
+    {"id":"geometry-and-frames","section":"foundations","title":"坐标系、URDF、TF、FK 与 IK","file":"geometry-and-frames.md","summary":"用一台移动机械臂理解空间关系和运动学。","tags":["URDF","TF","FK","IK","Pose"],"related":["robotics-stack","sensors-and-estimation"],"maturity":"概念速览"},
+    {"id":"sensors-and-estimation","section":"foundations","title":"传感器、相机与状态估计","file":"sensors-and-estimation.md","summary":"Encoder、IMU、双目/鱼眼、内外参、VIO、SLAM。","tags":["Encoder","IMU","Camera","VIO","SLAM"],"related":["geometry-and-frames","data-pipeline"],"maturity":"概念速览"},
+    {"id":"file-formats","section":"foundations","title":"数据格式与软件接口","file":"file-formats.md","summary":"SDK、MCAP、XML、YUV420P、UUID、SHA-256 与常见文件格式。","tags":["SDK","MCAP","YUV420P","XML"],"related":["data-pipeline","glossary"],"maturity":"概念速览"},
+    {"id":"glossary","section":"reference","title":"术语速查","file":"glossary.md","summary":"跨章节检索的中英文术语词典。","tags":["Glossary","Vocabulary"],"related":["overview","file-formats"],"maturity":"持续补充"},
+    {"id":"reading-list","section":"reference","title":"论文与官方资料索引","file":"reading-list.md","summary":"以原始论文和技术报告为优先，保留研究出处。","tags":["Papers","References","Sources"],"related":["industry-landscape","data-recipe"],"maturity":"持续补充"},
+    {"id":"maintain","section":"reference","title":"如何扩展这个知识库","file":"maintain.md","summary":"Markdown 编辑、新增章节、来源记录与构建流程。","tags":["Knowledge Base","Markdown","Maintenance"],"related":["overview","reading-list"],"maturity":"使用说明"}
+  ]
+}
