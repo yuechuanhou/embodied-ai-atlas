@@ -1,0 +1,8 @@
+# Generated website is recreated by GitHub Actions on every push.
+/dist/
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.DS_Store
+.pytest_cache/
