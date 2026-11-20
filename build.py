@@ -1,4 +1,4 @@
-"""Build Embodied AI Atlas v0.2 as one offline HTML document."""
+"""Build Embodied AI Atlas as one offline HTML document."""
 from __future__ import annotations
 import html
 import json
@@ -86,8 +86,27 @@ for item in registry["topics"]:
     topic_ids.add(item["id"])
 
 focus = [{**item, "anchor": resolve_location(item["article"], item.get("heading"))} for item in registry["focus"]]
-relations = list(registry.get("relations", []))
 topic_by_id = {t["id"]: t for t in topics}
+
+def resolve_entries(owner):
+    entries = []
+    for ref in owner["articles"]:
+        ref = {"article": ref} if isinstance(ref, str) else ref
+        topic = topic_by_id[ref.get("topic", ref.get("article"))]
+        entries.append({"article": topic["article"], "topic_id": topic["id"], "title": topic["title"],
+                        "anchor": topic["anchor"], "reason": ref.get("reason", "")})
+    owner["entries"] = entries
+    owner["articles"] = list(dict.fromkeys(x["article"] for x in entries))
+
+for stage in architecture["lifecycle"]:
+    for secondary in stage["topics"]:
+        resolve_entries(secondary)
+for loop in architecture["loops"]:
+    for step in loop["steps"]:
+        resolve_entries(step)
+for context in architecture["contexts"]:
+    resolve_entries(context)
+relations = list(registry.get("relations", []))
 strong_pairs = {frozenset((topic_by_id[r["from"]]["article"], topic_by_id[r["to"]]["article"]))
                 for r in relations if r["type"] != "related"}
 seen_related = {frozenset((r["from"], r["to"])) for r in relations if r["type"] == "related"}
@@ -104,6 +123,7 @@ payload = {"site": manifest["site"], "sections": manifest["sections"], "pages": 
 data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
 css = (ROOT / "assets" / "site.css").read_text(encoding="utf-8")
 css += "\n" + (ROOT / "assets" / "v02.css").read_text(encoding="utf-8")
+css += "\n" + (ROOT / "assets" / "lifecycle.css").read_text(encoding="utf-8")
 js = (ROOT / "assets" / "site.js").read_text(encoding="utf-8")
 page = f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -116,5 +136,6 @@ page = f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 dist = ROOT / "dist"
 dist.mkdir(exist_ok=True)
 (dist / "index.html").write_text(page, encoding="utf-8")
-shutil.copyfile(dist / "index.html", ROOT.parent / "Embodied_AI_Atlas_v0.2.html")
+release = '.'.join(manifest['site']['version'].split('.')[:2])
+shutil.copyfile(dist / "index.html", ROOT.parent / f"Embodied_AI_Atlas_v{release}.html")
 print(f"Built {len(pages)} articles and {len(topics)} topics -> {dist / 'index.html'} ({len(page.encode('utf-8')) / 1024:.0f} KiB)")

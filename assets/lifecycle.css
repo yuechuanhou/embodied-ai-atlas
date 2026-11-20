@@ -1,0 +1,59 @@
+/* Lifecycle nodes stay ordinary accessible links; SVG connectors are measured. */
+.lifecycle-network{position:relative}
+.lifecycle-edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.lifecycle-edges .edge{fill:none;stroke-linejoin:round;stroke-linecap:round}
+.arrow-coupling{fill:var(--accent)}
+.lifecycle-nodes{display:flex;flex-direction:column;position:relative}
+.life-node{display:flex;align-items:center;width:100%;margin:0 auto;border:1px solid var(--line);text-decoration:none;color:var(--ink);transition:border-color .15s,background .15s}
+.life-num{flex-shrink:0}
+.life-node strong,.life-node small{display:block}
+.life-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%;margin:auto}
+.life-pair .life-node{height:100%}
+@media(max-width:600px){.life-pair{grid-template-columns:1fr}}
+/* Minimal homepage lifecycle presentation. */
+.atlas-home #lifecycle>.section-heading{margin-top:25px;margin-bottom:16px}
+.atlas-home .section-heading h2{font-size:21px;font-weight:650;letter-spacing:-.35px}
+.lifecycle-map{max-width:940px;margin:0 auto;padding:0;border:0;border-radius:0;background:transparent}
+.crosscut-caption{display:flex;justify-content:center;align-items:baseline;flex-wrap:wrap;gap:0 7px;margin:0 0 18px;padding:0;font-size:13px;line-height:1.8;font-weight:400;color:var(--muted)}
+.lifecycle-map .lifecycle-network{padding:3px 0 29px}
+.lifecycle-map .lifecycle-nodes{gap:21px;padding:0 72px}
+.feedback-stages{display:flex;flex-direction:column;gap:21px}
+.lifecycle-map .life-node{max-width:520px;min-height:64px;padding:10px 15px;gap:15px;border-radius:8px;background:var(--paper);border-color:var(--line);border-color:color-mix(in srgb,var(--line) 70%,transparent);box-shadow:none}
+.lifecycle-map .life-node:hover,.lifecycle-map .life-node:focus-visible{border-color:var(--accent);background:var(--paper)}
+.lifecycle-map .life-num{font-size:12px;font-weight:500;color:var(--faint);width:22px}
+.lifecycle-map .life-node strong{font-size:15px;font-weight:600;line-height:1.45;letter-spacing:-.1px}
+.lifecycle-map .life-node small{font-size:14px;font-weight:400;line-height:1.5;color:var(--muted);margin-top:2px}
+.lifecycle-map .life-pair{max-width:720px;gap:52px}
+.lifecycle-map .life-pair .life-node{min-height:74px}
+.lifecycle-map .lifecycle-edges .system{stroke:var(--faint);stroke-width:1;opacity:.65}
+.lifecycle-map .arrow-system{fill:var(--faint)}
+.lifecycle-map .lifecycle-edges .coupling{stroke:var(--accent);stroke-width:1.5;opacity:.9}
+.lifecycle-map .lifecycle-edges .feedback{stroke:var(--faint);stroke-width:1;stroke-dasharray:none;opacity:.55}
+.lifecycle-map .arrow-feedback{fill:var(--faint)}
+.feedback-bracket{fill:none;stroke:var(--faint);stroke-width:1;opacity:.4}
+.feedback-caption{position:absolute;transform:translate(-50%,-50%);background:var(--bg);color:var(--muted);font-size:12px;line-height:1.4;white-space:nowrap;padding:2px 10px;pointer-events:none}
+.lifecycle-map .atlas-note{font-size:13px;line-height:1.8;margin:9px 0 0;color:var(--muted)}
+.atlas-home #lifecycle+section .section-heading{margin-top:36px}
+@media(max-width:1100px){
+ .lifecycle-map .lifecycle-nodes{padding-inline:55px}
+ .lifecycle-map .life-pair{gap:44px}
+ .lifecycle-map .life-pair .life-node{min-height:88px}
+}
+@media(max-width:600px){
+ .atlas-home #lifecycle>.section-heading{margin-top:25px;margin-bottom:18px}
+ .crosscut-caption{font-size:12px;gap:0 5px;margin-bottom:14px}
+ .crosscut-caption>span:first-of-type{display:none}
+ .crosscut-caption>span:nth-of-type(2){margin-left:4px}
+ .lifecycle-map .lifecycle-nodes{padding:0 7px 0 43px;gap:20px}
+ .feedback-stages{gap:20px}
+ .lifecycle-map .life-node{padding:11px 12px;gap:8px;min-height:74px}
+ .lifecycle-map .life-node strong{font-size:14px;line-height:1.5}
+ .lifecycle-map .life-node small{font-size:14px}
+ .lifecycle-map .life-num{font-size:12px;width:18px}
+ .lifecycle-map .life-pair{border:0;padding:0;border-radius:0;gap:28px}
+ .lifecycle-map .life-pair .life-node{min-height:74px}
+ .feedback-caption{font-size:11px;padding-inline:6px}
+ .lifecycle-map .atlas-note{font-size:12px}
+}
+
+

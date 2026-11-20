@@ -2,38 +2,51 @@
 
 **System-centric · Knowledge-driven · Context-aware**
 
-A Markdown-first, offline-capable personal knowledge atlas for robotics and Embodied AI. The knowledge base grows from real technical questions, not a fixed curriculum.
+A Markdown-first, offline-capable personal knowledge atlas for robotics and Embodied AI. Knowledge grows from real technical questions, not a fixed curriculum.
 
-## v0.2 architecture
+## v0.3
 
-- **System overview:** a six-stage Embodied Intelligence Lifecycle with Execution ↔ Learning and system-wide feedback.
-- **Core loops:** Robot Execution, Robot Learning and Engineering Improvement.
-- **Canonical knowledge:** nine primary domains, one main domain per article, one canonical location per indexed topic.
-- **Contextual discovery:** professional views for Data Solutions, Robot Systems Integration, Robot Intelligence and Engineering Cases.
-- **Context-aware reading:** relevant section highlighted depending on entry point, with the original article kept complete.
-- **No filler:** 30 secondary Lifecycle topics are architecture positions, not required Markdown pages.
+The v0.2 system model remains the foundation: six Lifecycle stages, three feedback Loops, nine primary Domains and four professional Contexts. Read [ARCHITECTURE.md](ARCHITECTURE.md) for identities, relations and evolution rules.
 
-Read [ARCHITECTURE.md](ARCHITECTURE.md) for the definitive model, relationships and change rules.
+- A lightweight system map shows branches, Execution ↔ Learning, engineering/validation across the lifecycle, and one feedback return to the grouped Stages 01–05.
+- Desktop navigation hides completely and remembers the local preference. Mobile navigation starts closed and supports keyboard/focus management.
+- Canonical Domain breadcrumbs stay separate from contextual reading sources. Source returns and browser history restore reading position. Article contents remain available on narrow screens.
+- Topic relations include same-article connections and derived backlinks. Stage entries can target a specific Topic with a relevance note.
+- Search returns Article and Topic results with plain-text matching and Chinese/English heading aliases.
+- Tiffany-inspired accents, graphite text and cool neutral surfaces support light/dark reading. Original Markdown, article IDs and historic links are preserved.
 
-## Local use
+## Build and validate
 
-Requires Python 3.9+:
+Requires Python 3.9+ and Node.js 22+ for development checks. Node/jsdom are test-only; the output website needs no package installation or runtime service.
 
-    python -m pip install -r requirements.txt
-    python scripts/validate_content.py
-    python build.py
-    python scripts/smoke_test.py
+```sh
+python -m pip install -r requirements.txt
+npm ci --ignore-scripts
+python scripts/validate_content.py
+python build.py
+python scripts/smoke_test.py
+npm test
+python scripts/test_content.py
+```
 
-Open dist/index.html in any modern browser (also offline). A separate Embodied_AI_Atlas_v0.2.html is written outside the repository for convenient sharing.
+Open `dist/index.html` in a browser, including offline. The build also writes `Embodied_AI_Atlas_v0.3.html` beside the repository for review/sharing. Generated output and local preview state are not committed.
 
-Knowledge source: content/*.md. Registry data: content/manifest.json (articles and domains), content/architecture.json (system views and contexts), content/topics.json (canonical section topics, typed relations, contextual focus). Presentation: assets/site.js, site.css and v02.css. Build output dist/ is generated and ignored by Git.
+The published/HTTP preview uses client-side history and scroll restoration. Direct `file:` use preserves native file navigation because browsers restrict history changes there; local preference storage may be unavailable, but theme/sidebar toggles still work for the open page.
 
-**Add knowledge gradually:** first check whether a topic already has a canonical location. Expand the existing article/section where possible; otherwise register a new topic or Markdown article with one primary domain. Add view mappings only where the relationship adds meaning.
+## Sources and maintenance
 
-Old URLs such as ?page=data-recipe remain valid. New views: ?view=stage&id=04, ?view=loop&id=learning, ?view=domain&id=data, ?view=context&id=data-solutions. A contextual link such as ?page=data-recipe&context=stage%3A06 highlights relevant content without creating a second article.
+| File | Role |
+| --- | --- |
+| `content/*.md` | Authoritative technical prose |
+| `content/manifest.json` | Articles and one primary Domain each |
+| `content/architecture.json` | Lifecycle, Loop and Context entry references; Loop-to-Stage membership |
+| `content/topics.json` | Section Topics, typed relations and contextual Focus |
+| `content/anchors.json` | Persistent IDs for registered headings and historical aliases |
+| `assets/site.js`, `site.css`, `v02.css`, `lifecycle.css` | Routing, interactions and presentation; the minimal homepage map has a dedicated stylesheet |
+| `scripts/legacy_articles.json` | Historical article IDs protected while allowing growth |
 
-## Deployment
+Before adding knowledge, search for an existing Topic. Extend its canonical article/section or register a new Topic in the appropriate Domain. Add only useful typed relations and view mappings. When renaming a registered heading, update the lookup in metadata while preserving its anchor ID.
 
-Pushing to main triggers validation, build and GitHub Pages publication through .github/workflows/deploy-pages.yml. Pull requests run validation and smoke checks. See GITHUB_DEPLOY.md for the existing setup.
+Old `?page=data-recipe` links remain valid. Views use `?view=stage&id=04`, `?view=loop&id=learning`, `?view=domain&id=data` and `?view=context&id=data-solutions`. Contextual reading uses `?page=data-recipe&context=stage%3A06`; section links append the stable heading anchor.
 
-Research claims are snapshots: preserve sources, dates, model versions and unknowns. Company data holdings are not automatically training mixture weights.
+PR validation runs without deployment, including stacked PRs. Production deployment runs only from main or an explicitly requested workflow dispatch. Review branches and PRs before merging; main merges trigger GitHub Pages.
