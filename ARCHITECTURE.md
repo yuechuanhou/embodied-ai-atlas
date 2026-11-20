@@ -112,3 +112,12 @@ New educational content is intentionally **outside v0.2 scope**.
 - `content/anchors.json` freezes identities for registered Topic and Focus headings. When renaming a heading, update its heading lookup while keeping its `id`; retain additional historic slugs in `aliases`. The build also emits the current title slug and legacy `section-N` aliases.
 - Same-article Topic relations are valid and visible. Relation UI names both the subject and object and derives incoming labels. Legacy reciprocal associations are deduplicated; stronger typed relations take display priority over broad article associations.
 - `scripts/legacy_articles.json` protects historic article IDs while allowing new articles. Tests must not fix the total article count at 26.
+
+## 8. Reading and navigation behavior
+
+- Breadcrumbs express the canonical path: Atlas → primary Domain → Article. Entry Stage, Loop or professional Context stays in a separate source/focus banner, never as an alternative content parent.
+- Explicit Topic/heading links take focus priority; an authored contextual focus is secondary. Default visits retain the complete article. A normal contextual visit starts at the article header and offers an explicit section jump.
+- Desktop navigation can hide completely and release its column. `atlasSidebarCollapsed` stores this local preference. Mobile navigation starts closed, traps focus while open and supports Escape/scrim closing. Navigation group state lasts for the current session.
+- Source return links restore the source view's position within the session; browser Back/Forward restore each history entry's position. Article footers link related knowledge and the Domain rather than a global article sequence.
+- The right-hand article TOC becomes a disclosure above the text when space is limited. Search returns Article and section Topic results, with plain-text matching and Topic/heading aliases.
+- Dialogs manage focus, inert backgrounds and return focus to their opener. Search Enter selection is scoped to its input; native link/button activation remains intact.

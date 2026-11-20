@@ -10,6 +10,11 @@
   const topicById = Object.fromEntries(DATA.topics.map(t => [t.id, t]));
   const app = document.getElementById('app');
   let sidebarOpen = false, searchOpen = false, searchResults = [], searchSelected = 0;
+  const groupState = new Map(), positions = new Map();
+  let searchOpener = null;
+  const narrowScreen = () => typeof matchMedia === 'function' && matchMedia('(max-width: 800px)').matches;
+  const readPreference = (key,fallback) => {try{return localStorage.getItem(key) ?? fallback;}catch(_){return fallback;}};
+  let sidebarCollapsed = readPreference('atlasSidebarCollapsed','false') === 'true';
   const glyph = {
     search:'⌕',menu:'☰',theme:'◐',loop:'↻',arrow:'↗',left:'←',right:'→',swap:'↔'
   };
@@ -78,11 +83,13 @@
   const stat = (n,label) => '<span><b>' + esc(n) + '</b> ' + esc(label) + '</span>';
 
   function sidebar(r) {
+    const origin = r.type === 'article' ? r.context : navContext(r);
+    const domain = r.type === 'article' ? byId[r.id].primary_domain : r.type === 'domain' ? r.id : '';
     const grouped = [
-      ['System Overview', ARCH.lifecycle.map(s => ['0' + Number(s.id) + '  ' + s.title,linkView('stage',s.id)]),r.type === 'stage'],
-      ['Core Loops', ARCH.loops.map(l => [l.title,linkView('loop',l.id)]),r.type === 'loop'],
-      ['Knowledge Domains', DATA.sections.filter(s => !s.auxiliary).map(s => [s.name,linkView('domain',s.id)]),r.type === 'domain'],
-      ['Explore by Context', ARCH.contexts.map(c => [c.title,linkView('context',c.id)]),r.type === 'context'],
+      ['System Overview', ARCH.lifecycle.map(s => [s.id + '  ' + s.title,linkView('stage',s.id)]),r.type === 'home' || origin.startsWith('stage:')],
+      ['Core Loops', ARCH.loops.map(l => [l.title,linkView('loop',l.id)]),origin.startsWith('loop:')],
+      ['Knowledge Domains', DATA.sections.filter(s => !s.auxiliary).map(s => [s.name,linkView('domain',s.id)]),!!domain],
+      ['Explore by Context', ARCH.contexts.map(c => [c.title,linkView('context',c.id)]),origin.startsWith('context:')],
       ['Research & Reference',[
         ['Industry & Research',linkView('domain','industry')],
         ['Glossary',linkArticle('glossary')],
@@ -90,12 +97,18 @@
         ['Atlas Architecture','https://github.com/yuechuanhou/embodied-ai-atlas/blob/main/ARCHITECTURE.md']
       ],false]
     ];
-    return '<aside class="sidebar' + (sidebarOpen ? ' open' : '') + '" id="sidebar" aria-label="Knowledge navigation">' +
+    return '<aside class="sidebar" id="sidebar" aria-label="Knowledge navigation">' +
+      '<button class="icon-btn sidebar-close" data-nav-toggle aria-label="Close navigation">×</button>' +
       '<a class="brand" href="?page=home"><span class="brand-glyph"><span class="brand-dot"></span></span><span><span class="brand-title">Embodied AI Atlas</span><span class="brand-sub">SYSTEM · LEARNING · ENGINEERING</span></span></a>' +
-      '<a class="nav-home" href="?page=home">⌂ &nbsp; System Map / Home</a><div class="nav-divider"></div>' +
+      '<a class="nav-home'+(r.type==='home'?' active':'')+'" href="?page=home"'+(r.type==='home'?' aria-current="page"':'')+'>System Map / Home</a><div class="nav-divider"></div>' +
       '<div class="v02-nav">' + grouped.map(([name,links,opened]) =>
-        '<details class="nav-group"' + (opened ? ' open' : '') + '><summary>' + esc(name) + '</summary>' +
-        links.map(([label,url]) => '<a href="' + eattr(url) + '" class="nav-link">' + esc(label) + '</a>').join('') +
+        '<details class="nav-group" data-group="'+eattr(name)+'"' + ((groupState.get(name) ?? opened) ? ' open' : '') + '><summary>' + esc(name) + '</summary>' +
+        links.map(([label,url]) => {
+          const current = url === (r.type==='article' ? linkView('domain',domain) : linkView(r.type,r.id));
+          const source = origin && url === viewHref(origin);
+          return '<a href="' + eattr(url) + '" class="nav-link'+(current?' active':'')+(source?' nav-source':'')+'"'+
+            (current?' aria-current="'+(r.type==='article'?'location':'page')+'"':'')+'>'+esc(label)+(source&&r.type==='article'?'<small>Reading from</small>':'')+'</a>';
+        }).join('') +
         '</details>').join('') + '</div>' +
       '<div class="sidebar-foot"><b>One knowledge core. Many views.</b>v' + esc(DATA.site.version) + ' · ' + esc(DATA.site.asOf) + '</div></aside>' +
       '<div id="sidebar-scrim" class="sidebar-scrim' + (sidebarOpen ? ' open' : '') + '"></div>';
@@ -107,12 +120,45 @@
       : r.type === 'loop' ? loopById[r.id].title
       : r.type === 'context' ? contextById[r.id].title
       : sections[r.id].name;
+    const domain = r.type === 'article' ? sections[byId[r.id].primary_domain] : null;
     return '<header class="topbar"><div class="topbar-left">' +
-      '<button class="icon-btn mobile-menu" id="mobile-menu" aria-label="Open navigation">☰</button>' +
-      '<nav class="breadcrumbs"><a href="?page=home">Atlas</a><span>/</span><strong>' + esc(title) + '</strong></nav></div>' +
-      '<div class="top-actions"><button class="search-trigger" id="open-search">' + glyph.search +
+      '<button class="icon-btn" id="nav-toggle" data-nav-toggle aria-controls="sidebar" aria-expanded="false" aria-label="Show navigation">☰</button>' +
+      '<nav class="breadcrumbs" aria-label="Breadcrumb"><a href="?page=home">Atlas</a><span>/</span>'+
+      (domain?'<a class="breadcrumb-domain" href="'+eattr(linkView('domain',domain.id))+'">'+esc(domain.name)+'</a><span>/</span>':'')+
+      '<strong aria-current="page">' + esc(title) + '</strong></nav></div>' +
+      '<div class="top-actions"><button class="search-trigger" id="open-search" aria-label="Search knowledge">' + glyph.search +
       '<span>Search knowledge</span><kbd>/</kbd></button><button class="icon-btn" id="theme-button" aria-label="Toggle theme">' +
       glyph.theme + '</button></div></header>';
+  }
+
+  function syncNavigation(focusDrawer=false) {
+    const sidebar=document.getElementById('sidebar'),button=document.getElementById('nav-toggle');
+    if(!sidebar||!button)return;
+    const narrow=narrowScreen(),visible=narrow?sidebarOpen:!sidebarCollapsed;
+    sidebar.hidden=!visible;
+    sidebar.toggleAttribute('inert',!visible);
+    sidebar.classList.toggle('open',narrow&&visible);
+    app.querySelector('.app-shell').classList.toggle('sidebar-collapsed',!narrow&&sidebarCollapsed);
+    document.getElementById('sidebar-scrim').classList.toggle('open',narrow&&visible);
+    button.setAttribute('aria-expanded',String(visible));
+    button.setAttribute('aria-label',visible?'Hide navigation':'Show navigation');
+    document.body.style.overflow=(searchOpen||(narrow&&visible))?'hidden':'';
+    document.querySelector('.workspace')?.toggleAttribute('inert',narrow&&visible);
+    if(focusDrawer&&narrow&&visible)sidebar.querySelector('button')?.focus();
+  }
+  function closeNavigation() {
+    sidebarOpen=false;syncNavigation();document.getElementById('nav-toggle')?.focus();
+  }
+  function trapFocus(event,container) {
+    if(event.key!=='Tab')return;
+    const items=[...container.querySelectorAll('a[href],button,input,summary,[tabindex="0"]')].filter(x=>{
+      const closed=x.closest('details:not([open])');
+      return !x.disabled&&!x.closest('[inert],[hidden]')&&(!closed||x===closed.querySelector('summary'));
+    });
+    if(!items.length)return;
+    const index=items.indexOf(document.activeElement);
+    if(event.shiftKey&&(index<=0)){event.preventDefault();items.at(-1).focus();}
+    else if(!event.shiftKey&&(index===items.length-1||index<0)){event.preventDefault();items[0].focus();}
   }
 
   function lifecycleDiagram() {
@@ -254,126 +300,193 @@
       ...ARCH.loops.filter(loop=>loop.steps.some(step=>step.articles.includes(id))).map(loop=>({name:loop.title,url:linkView('loop',loop.id)})),
       ...ARCH.contexts.filter(c=>c.articles.includes(id)).map(c=>({name:c.title,url:linkView('context',c.id)}))
     ];
-    const index=PAGES.findIndex(x=>x.id===id),prev=PAGES[index-1],next=PAGES[index+1];
+    const returnLink=ctx?'<a data-return-source href="'+eattr(viewHref(ctx))+'">Return to '+esc(viewLabel(ctx))+'</a>':'';
     const focusBlock=focus?'<div class="context-focus"><div class="context-head">◎ &nbsp; Viewing from <a href="' +
-      eattr(viewHref(ctx))+'">'+esc(viewLabel(ctx))+'</a></div><p>'+esc(focus.reason)+'</p>' +
+      eattr(viewHref(ctx))+'" data-return-source>'+esc(viewLabel(ctx))+'</a></div><p>'+esc(focus.reason)+'</p>' +
       (focus.anchor?'<a href="#'+eattr(focus.anchor)+'" data-toc="'+eattr(focus.anchor)+'">Read related section ↘</a>':'')+
-      '<span class="focus-clear"><a href="'+eattr(linkArticle(id))+'">Default view</a></span></div>':'';
-    const aside='<aside class="toc-panel"><div class="toc-label">ON THIS PAGE</div>' +
-      p.toc.filter(t=>t.level===2||t.level===3).map(t=>'<a class="toc-link '+(t.id===(focus&&focus.anchor)?'focus-link':'')+
+      '<div class="context-actions">'+returnLink+'<a href="'+eattr(linkArticle(id))+'">Default view</a></div></div>':'';
+    const tocLinks=p.toc.filter(t=>t.level===2||t.level===3).map(t=>'<a class="toc-link '+(t.id===(focus&&focus.anchor)?'focus-link':'')+
       (t.level===3?' sub':'')+'" href="#'+eattr(t.id)+'" data-toc="'+eattr(t.id)+'">'+esc(t.title)+'</a>').join('')+
-      '<div class="toc-divider"></div><div class="toc-small">Same canonical article across all navigation views.</div></aside>';
+      '<div class="toc-divider"></div>';
+    const aside='<aside class="toc-panel" aria-label="Article contents"><div class="toc-label">ON THIS PAGE</div>'+tocLinks+'</aside>';
+    const mobileToc='<details class="inline-toc"><summary>On this page</summary><nav aria-label="Article contents">'+tocLinks+'</nav></details>';
     const technical=conn.length?'<section class="related-block"><div class="related-title">KNOWLEDGE RELATIONS / BACKLINKS</div><div class="relation-grid">'+
       conn.map(x=>'<div class="relation-chip"><a href="'+eattr(linkArticle(x.source.article,'',x.source.anchor))+'">'+esc(x.source.title)+
       '</a><small>'+esc(x.label)+'</small><a href="'+eattr(linkArticle(x.topic.article,'',x.topic.anchor))+'"><strong>'+esc(x.topic.title)+'</strong></a></div>').join('')+'</div></section>':'';
     const system=matches.length?'<section class="related-block"><div class="related-title">SYSTEM CONNECTIONS</div><div class="related-links">'+
       matches.map(x=>'<a class="related-link" href="'+eattr(x.url)+'">'+esc(x.name)+' ↗</a>').join('')+'</div></section>':'';
-    const pager='<nav class="article-pager"><div>'+(prev?'<a class="pager-card" href="'+eattr(linkArticle(prev.id))+'"><small>← Previous</small><strong>'+esc(prev.title)+'</strong></a>':'')+
-      '</div><div>'+(next?'<a class="pager-card pager-next" href="'+eattr(linkArticle(next.id))+'"><small>Next →</small><strong>'+esc(next.title)+'</strong></a>':'')+'</div></nav>';
+    const pager='<nav class="article-return" aria-label="Continue exploring">'+returnLink+'<a href="'+eattr(linkView('domain',s.id))+'">Browse '+esc(s.name)+'</a></nav>';
     return '<main class="page-container article-layout"><div class="article-main"><div class="article-top">' +
       '<div class="article-category"><a href="'+eattr(linkView('domain',s.id))+'">'+esc(s.eyebrow)+'</a> / CANONICAL ARTICLE</div>' +
       '<h1>'+esc(p.title)+'</h1><div class="article-summary">'+esc(p.summary)+'</div>' +
       '<div class="article-meta"><span>'+esc(p.maturity)+'</span><span class="meta-dot"></span><span>'+
       Math.max(2,Math.ceil(p.words/480))+' min read</span><span class="meta-dot"></span>'+
       p.tags.map(t=>'<span class="article-tag">'+esc(t)+'</span>').join('')+'</div></div>' +
-      focusBlock + '<article class="content-body">'+p.html.replace(/<table>([\s\S]*?)<\/table>/g,'<div class="table-wrap"><table>$1</table></div>')+
+      focusBlock + mobileToc + '<article class="content-body">'+p.html.replace(/<table>([\s\S]*?)<\/table>/g,'<div class="table-wrap"><table>$1</table></div>')+
       '</article>'+technical+system+pager+'</div>'+aside+'</main>';
   }
 
-  function render() {
+  function applyReadingFocus(r) {
+    document.querySelectorAll?.('.reading-focus').forEach(el=>el.classList.remove('reading-focus'));
+    if(r.type!=='article')return;
+    let anchor='';
+    try{anchor=decodeURIComponent(location.hash.slice(1));}catch(_){}
+    const focus=focusForArticle(r.id,r.context);
+    const target=document.getElementById(anchor || focus?.anchor || '');
+    const heading=target?.matches?.('h2,h3,h4')?target:target?.closest?.('h2,h3,h4');
+    if(heading)heading.classList.add('reading-focus');
+  }
+  function restoreReadingPosition(y) {
+    requestAnimationFrame(()=>{
+      if(typeof y==='number'){window.scrollTo({top:y,behavior:'instant'});return;}
+      let anchor='';try{anchor=decodeURIComponent(location.hash.slice(1));}catch(_){}
+      if(anchor)document.getElementById(anchor)?.scrollIntoView({behavior:'instant',block:'start'});
+      else window.scrollTo({top:0,behavior:'instant'});
+    });
+  }
+  function render(options={}) {
     const r=route(); sidebarOpen=false;
-    let content=r.type==='home'?home():r.type==='stage'?stagePage(r.id):r.type==='loop'?loopPage(r.id):
-      r.type==='domain'?domainPage(r.id):r.type==='context'?contextPage(r.id):
-      articlePage(r.id,r.context);
+    const content=r.type==='home'?home():r.type==='stage'?stagePage(r.id):r.type==='loop'?loopPage(r.id):
+      r.type==='domain'?domainPage(r.id):r.type==='context'?contextPage(r.id):articlePage(r.id,r.context);
     app.innerHTML='<div class="app-shell">'+sidebar(r)+'<div class="workspace">'+topbar(r)+content+'</div></div>';
     const title=r.type==='article'?byId[r.id].title:r.type==='home'?'System Overview':r.type==='stage'?stageById[r.id].title:
       r.type==='loop'?loopById[r.id].title:r.type==='domain'?sections[r.id].name:contextById[r.id].title;
     document.title=title+' · Embodied AI Atlas';
-    if(location.hash)requestAnimationFrame(()=>{const id=decodeURIComponent(location.hash.slice(1));document.getElementById(id)?.scrollIntoView();});
+    syncNavigation();applyReadingFocus(r);
+    if(options.moveFocus){const h=app.querySelector('main h1');h?.setAttribute('tabindex','-1');h?.focus({preventScroll:true});}
+    restoreReadingPosition(options.scroll);
   }
-  function navigate(url) {
+  function rememberPosition() {
+    positions.set(location.href,window.scrollY);
+    history.replaceState({...history.state,atlasScroll:window.scrollY},'',location.href);
+  }
+  function navigate(url,restore=false) {
     if(url.pathname!==location.pathname)return;
-    history.pushState({},'',url.href);
-    render();
-    if(!url.hash)window.scrollTo(0,0);
+    rememberPosition();
+    const samePage=url.search===location.search;
+    history.pushState({atlasScroll:restore?positions.get(url.href)||0:undefined},'',url.href);
+    if(samePage&&url.hash){applyReadingFocus(route());restoreReadingPosition();}
+    else render({moveFocus:true,scroll:restore?positions.get(url.href)||0:undefined});
   }
 
+  const topicsByArticle=Object.fromEntries(PAGES.map(p=>[p.id,DATA.topics.filter(t=>t.article===p.id)]));
   const findResults=q=>{
     const query=q.trim().toLowerCase();
-    if(!query)return PAGES.slice(0,9).map(p=>({p,topic:null}));
-    const scored=PAGES.map(p=>{
-      const aliases=DATA.topics.filter(t=>t.article===p.id).map(t=>t.title+' '+t.id).join(' ').toLowerCase();
+    if(!query)return PAGES.slice(0,7).map(p=>({p,topic:null,score:0}));
+    const terms=query.split(/\s+/),results=[];
+    for(const p of PAGES){
+      const plain=(p.search_text||p.summary).toLowerCase();
+      const title=p.title.toLowerCase(),tags=p.tags.join(' ').toLowerCase();
       let score=0;
-      for(const term of query.split(/\s+/)){
-        if(p.title.toLowerCase().includes(term))score+=20;
-        if(p.tags.join(' ').toLowerCase().includes(term))score+=12;
-        if(aliases.includes(term))score+=13;
-        if(p.summary.toLowerCase().includes(term))score+=8;
-        if(p.html.toLowerCase().includes(term))score+=2;
+      for(const term of terms){
+        if(title.includes(term))score+=20;
+        if(tags.includes(term))score+=10;
+        if(p.summary.toLowerCase().includes(term))score+=6;
+        if(plain.includes(term))score+=1;
       }
-      const exact=DATA.topics.find(t=>t.article===p.id && t.kind==='section' &&
-        (t.title.toLowerCase().includes(query)||t.id.toLowerCase()===query));
-      return {p,score,topic:exact||null};
-    }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
-    return scored.slice(0,15);
+      for(const topic of topicsByArticle[p.id].filter(t=>t.kind==='section')){
+        const aliases=[topic.title,topic.id,topic.heading,...(topic.aliases||[])].join(' ').toLowerCase();
+        const matching=terms.filter(term=>aliases.includes(term)).length;
+        if(matching)results.push({p,topic,score:30*matching+(topic.id===query?30:0)});
+      }
+      if(score)results.push({p,topic:null,score});
+    }
+    return results.sort((a,b)=>b.score-a.score).slice(0,20);
   };
+  function selectSearchResult(index){
+    if(!searchResults.length)return;
+    searchSelected=(index+searchResults.length)%searchResults.length;
+    document.querySelectorAll('#search-results a').forEach((el,i)=>{
+      el.classList.toggle('selected',i===searchSelected);
+      if(i===searchSelected)el.setAttribute('aria-current','true');else el.removeAttribute('aria-current');
+    });
+    document.querySelectorAll('#search-results a')[searchSelected]?.scrollIntoView?.({block:'nearest'});
+  }
   function updateSearch(q) {
     searchResults=findResults(q);searchSelected=0;
     const list=document.getElementById('search-results');if(!list)return;
     list.innerHTML=searchResults.length?searchResults.map((x,i)=>
-      '<a class="search-row" href="'+eattr(linkArticle(x.p.id,'',x.topic?.anchor))+'" data-search-result="'+i+'"><small>'+
-      esc(sections[x.p.primary_domain].name)+'</small><strong>'+esc(x.topic?.title||x.p.title)+
-      '</strong><p>'+esc(x.p.summary)+'</p></a>').join(''):
-      '<div class="search-no-results">No results. Try the English term or a broader concept.</div>';
+      '<a class="search-row'+(i===0?' selected':'')+'" href="'+eattr(linkArticle(x.p.id,'',x.topic?.anchor))+'" data-search-result="'+i+'"'+(i===0?' aria-current="true"':'')+'><small>'+
+      (x.topic?'TOPIC':'ARTICLE')+' · '+esc(sections[x.p.primary_domain].name)+'</small><strong>'+esc(x.topic?.title||x.p.title)+
+      '</strong><p>'+esc(x.topic?x.p.title:x.p.summary)+'</p></a>').join(''):
+      '<div class="search-no-results">No results. Try another term or a broader concept.</div>';
+    document.getElementById('search-status').textContent=searchResults.length+' results';
   }
   function openSearch(){
-    if(searchOpen)return;searchOpen=true;
+    if(searchOpen)return;
+    if(sidebarOpen)closeNavigation();
+    searchOpen=true;searchOpener=document.activeElement===document.body?document.getElementById('open-search'):document.activeElement;
     const overlay=document.createElement('div');overlay.id='search-overlay';overlay.className='search-backdrop';
     overlay.innerHTML='<div class="search-modal" role="dialog" aria-modal="true" aria-label="Search knowledge">'+
-      '<div class="search-box">⌕ <input id="search-input" type="search" placeholder="Search VIO, Data Recipe, IK, World Model..."/>'+
+      '<div class="search-box"><input id="search-input" type="search" aria-label="Search articles and topics" placeholder="Search VIO, Data Recipe, IK, World Model..."/>'+
       '<button class="search-close" id="close-search" aria-label="Close search">×</button></div>'+
-      '<div class="search-results" id="search-results"></div><div class="search-footer">Search article titles, concepts and content · Esc to close</div></div>';
-    document.body.appendChild(overlay);
+      '<div class="search-results" id="search-results"></div><div class="search-footer"><span id="search-status" role="status" aria-live="polite"></span><span>↑ ↓ select · Enter open · Esc close</span></div></div>';
+    document.body.appendChild(overlay);app.setAttribute('inert','');document.body.style.overflow='hidden';
     const input=document.getElementById('search-input');
     input.addEventListener('input',()=>updateSearch(input.value));input.focus();updateSearch('');
   }
-  function closeSearch(){document.getElementById('search-overlay')?.remove();searchOpen=false;}
+  function closeSearch(restoreFocus=true){
+    document.getElementById('search-overlay')?.remove();searchOpen=false;app.removeAttribute('inert');syncNavigation();
+    if(restoreFocus)(searchOpener?.isConnected?searchOpener:document.getElementById('open-search'))?.focus();
+  }
+  app.addEventListener('toggle',event=>{
+    if(event.target.matches?.('.nav-group'))groupState.set(event.target.dataset.group,event.target.open);
+  },true);
   app.addEventListener('click',event=>{
     if(event.target.closest('#open-search')){openSearch();return;}
     if(event.target.closest('#theme-button')){setTheme(getTheme()==='light'?'dark':'light');return;}
-    if(event.target.closest('#mobile-menu')){sidebarOpen=true;document.getElementById('sidebar').classList.add('open');document.getElementById('sidebar-scrim').classList.add('open');return;}
-    if(event.target.closest('#sidebar-scrim')){sidebarOpen=false;document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebar-scrim').classList.remove('open');return;}
+    if(event.target.closest('[data-nav-toggle]')){
+      if(narrowScreen()){
+        if(sidebarOpen)closeNavigation();else{sidebarOpen=true;syncNavigation(true);}
+      }else{
+        sidebarCollapsed=!sidebarCollapsed;
+        try{localStorage.setItem('atlasSidebarCollapsed',String(sidebarCollapsed));}catch(_){}
+        syncNavigation();document.getElementById('nav-toggle')?.focus();
+      }
+      return;
+    }
+    if(event.target.closest('#sidebar-scrim')){closeNavigation();return;}
     const a=event.target.closest('a');
-    if(!a || event.metaKey||event.ctrlKey||event.altKey||event.shiftKey||event.button!==0)return;
+    if(!a||event.defaultPrevented||event.metaKey||event.ctrlKey||event.altKey||event.shiftKey||event.button!==0)return;
     const url=new URL(a.href,location.href);
-    if(url.origin===location.origin && url.pathname===location.pathname &&
-      (url.searchParams.has('view')||url.searchParams.has('page'))){
-      event.preventDefault();navigate(url);
+    if(url.origin===location.origin&&url.pathname===location.pathname){
+      event.preventDefault();navigate(url,a.hasAttribute('data-return-source'));
     }
   });
   document.addEventListener('click',event=>{
     if(!searchOpen)return;
     if(event.target.id==='search-overlay'||event.target.closest('#close-search')){closeSearch();return;}
     const a=event.target.closest('#search-overlay a');
-    if(a && !event.metaKey&&!event.ctrlKey){event.preventDefault();const u=new URL(a.href,location.href);closeSearch();navigate(u);}
+    if(a&&!event.metaKey&&!event.ctrlKey&&!event.shiftKey&&!event.altKey&&event.button===0){event.preventDefault();const u=new URL(a.href,location.href);closeSearch(false);navigate(u);}
   });
   document.addEventListener('keydown',event=>{
-    const editing=['INPUT','TEXTAREA'].includes(event.target.tagName);
-    if((event.key==='/'&&!editing)||(event.key.toLowerCase()==='k'&&(event.metaKey||event.ctrlKey))){
-      event.preventDefault();openSearch();return;
+    if(searchOpen){
+      const overlay=document.getElementById('search-overlay');
+      if(event.key==='Escape'){event.preventDefault();closeSearch();return;}
+      trapFocus(event,overlay);
+      if(event.target.id==='search-input'){
+        if(event.key==='Enter'&&searchResults.length){
+          event.preventDefault();const target=document.querySelectorAll('#search-results a')[searchSelected];
+          if(target){const url=new URL(target.href,location.href);closeSearch(false);navigate(url);}
+        }else if((event.key==='ArrowDown'||event.key==='ArrowUp')&&searchResults.length){
+          event.preventDefault();selectSearchResult(searchSelected+(event.key==='ArrowDown'?1:-1));
+        }
+      }
+      return;
     }
-    if(!searchOpen)return;
-    if(event.key==='Escape'){event.preventDefault();closeSearch();return;}
-    if(event.key==='Enter' && searchResults.length){
-      event.preventDefault();
-      const target=document.querySelectorAll('#search-results a')[Math.min(searchSelected,searchResults.length-1)];
-      if(target){const url=new URL(target.href,location.href);closeSearch();navigate(url);}
+    if(sidebarOpen&&narrowScreen()){
+      if(event.key==='Escape'){event.preventDefault();closeNavigation();return;}
+      trapFocus(event,document.getElementById('sidebar'));return;
     }
-    if(event.key==='ArrowDown'||event.key==='ArrowUp'){
-      event.preventDefault();searchSelected=(searchSelected+(event.key==='ArrowDown'?1:-1)+searchResults.length)%searchResults.length;
-      document.querySelectorAll('#search-results a').forEach((el,i)=>el.classList.toggle('selected',i===searchSelected));
+    const editing=event.target.closest?.('input,textarea,select,[contenteditable="true"]');
+    if(!editing&&((event.key==='/')||(event.key.toLowerCase()==='k'&&(event.metaKey||event.ctrlKey)))){
+      event.preventDefault();openSearch();
     }
   });
-  window.addEventListener('popstate',()=>{render();window.scrollTo(0,0);});
+  window.addEventListener('popstate',event=>render({scroll:event.state?.atlasScroll,moveFocus:true}));
+  window.addEventListener('pagehide',rememberPosition);
+  window.addEventListener('hashchange',()=>applyReadingFocus(route()));
+  if(typeof matchMedia==='function')matchMedia('(max-width: 800px)').addEventListener('change',()=>{sidebarOpen=false;syncNavigation();});
+  history.scrollRestoration='manual';
   render();
 })();
