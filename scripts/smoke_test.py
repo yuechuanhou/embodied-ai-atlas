@@ -11,6 +11,6 @@ assert len(payload["architecture"]["loops"]) == 3
 assert len([x for x in payload["sections"] if not x.get("auxiliary")]) == 9
 assert any(x["id"] == "vio" and x["anchor"] for x in payload["topics"])
 assert any(x["article"] == "data-recipe" and x["view"] == "stage:06" and x["anchor"] for x in payload["focus"])
-assert 'id="section-1"' in content
-assert "Embodied AI Atlas" in content
-print("Smoke OK: 26 original articles, stage/loop/domain views, canonical topics, focus and legacy anchors.")
+assert any('id="section-1"' in p["html"] for p in payload["pages"]), "Legacy section-1 anchor absent"
+assert any('id="一个成熟的判断框架"' in p["html"] for p in payload["pages"]), "Stable heading anchor absent"
+print("Smoke OK: 26 articles, 6 stages, 3 loops, 9 domains, topic focus and historic anchors.")

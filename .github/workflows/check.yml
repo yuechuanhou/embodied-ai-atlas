@@ -25,3 +25,5 @@ jobs:
         run: python build.py
       - name: Smoke test generated site
         run: python scripts/smoke_test.py
+      - name: Test client-side view rendering
+        run: node scripts/test_runtime.js
