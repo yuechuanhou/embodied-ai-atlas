@@ -123,6 +123,7 @@ payload = {"site": manifest["site"], "sections": manifest["sections"], "pages": 
 data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
 css = (ROOT / "assets" / "site.css").read_text(encoding="utf-8")
 css += "\n" + (ROOT / "assets" / "v02.css").read_text(encoding="utf-8")
+css += "\n" + (ROOT / "assets" / "lifecycle.css").read_text(encoding="utf-8")
 js = (ROOT / "assets" / "site.js").read_text(encoding="utf-8")
 page = f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"/>

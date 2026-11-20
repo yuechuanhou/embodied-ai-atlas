@@ -14,7 +14,7 @@
   let searchOpener = null;
   const narrowScreen = () => typeof matchMedia === 'function' && matchMedia('(max-width: 800px)').matches;
   const readPreference = (key,fallback) => {try{return localStorage.getItem(key) ?? fallback;}catch(_){return fallback;}};
-  let sidebarCollapsed = readPreference('atlasSidebarCollapsed','false') === 'true';
+  let sidebarCollapsed = readPreference('atlasSidebarCollapsed','true') === 'true';
   const glyph = {
     search:'⌕',menu:'☰',theme:'◐',loop:'↻',arrow:'↗',left:'←',right:'→',swap:'↔'
   };
@@ -172,17 +172,23 @@
   }
 
   function lifecycleDiagram() {
-    const node=id=>{
-      const s=stageById[id];
-      return '<a class="life-node" data-stage="'+id+'" href="'+eattr(linkView('stage',id))+'"><span class="life-num">'+id+
-        '</span><div><strong>'+esc(s.title)+'</strong><small>'+esc(s.question)+'</small></div></a>';
+    const subtitles={
+      '01':'任务、场景与验收',
+      '02':'本体、硬件与系统架构',
+      '03':'感知、决策与动作执行',
+      '04':'数据、训练与能力改进',
+      '05':'集成、运行与故障诊断',
+      '06':'评估、部署与持续反馈'
     };
+    const node=id=>'<a class="life-node" data-stage="'+id+'" href="'+eattr(linkView('stage',id))+'"><span class="life-num">'+id+
+      '</span><div><strong>'+esc(stageById[id].title)+'</strong><small>'+esc(subtitles[id])+'</small></div></a>';
     return '<div class="lifecycle-map" role="group" aria-label="Embodied Intelligence Lifecycle" aria-describedby="lifecycle-description">'+
-      '<div class="crosscut-band"><span>贯穿全程</span><b>Systems Engineering</b><b>Verification &amp; Validation</b></div>'+
+      '<p class="crosscut-caption">贯穿全程<span aria-hidden="true"> · </span><span>Systems Engineering</span><span aria-hidden="true"> · </span><span>Verification &amp; Validation</span></p>'+
       '<div class="lifecycle-network" id="lifecycle-network"><svg class="lifecycle-edges" aria-hidden="true" focusable="false"></svg>'+
-      '<div class="lifecycle-nodes">'+node('01')+node('02')+'<div class="life-pair">'+node('03')+node('04')+'</div>'+node('05')+node('06')+'</div></div>'+
-      '<div class="map-legend"><span><i class="legend-line"></i>系统关系</span><span><i class="legend-line coupling"></i>执行 ↔ 学习</span><span><i class="legend-line feedback"></i>06 反馈至 01–05</span></div>'+
-      '<p id="lifecycle-description" class="atlas-note">01 → 02 → {03 ↔ 04} → 05 → 06。反馈可修订需求、本体、执行、学习和集成；这些关系不规定开发顺序。</p></div>';
+      '<div class="lifecycle-nodes"><div class="feedback-stages" id="feedback-stages" role="group" aria-label="Stages 01 through 05">'+node('01')+node('02')+
+      '<div class="life-pair">'+node('03')+node('04')+'</div>'+node('05')+'</div>'+node('06')+'</div>'+
+      '<span class="feedback-caption" id="feedback-caption">Feedback to 01–05</span></div>'+
+      '<p id="lifecycle-description" class="atlas-note">系统关系示意；各阶段可并行推进并持续迭代。</p></div>';
   }
   function drawLifecycleEdges(){
     const network=document.getElementById('lifecycle-network');if(!network)return;
@@ -192,26 +198,29 @@
       const b=el.getBoundingClientRect();pos[el.dataset.stage]={x:b.x-box.x,y:b.y-box.y,w:b.width,h:b.height};
     }
     if(Object.keys(pos).length!==6)return;
-    const top=id=>[pos[id].x+pos[id].w/2,pos[id].y-3];
-    const bottom=id=>[pos[id].x+pos[id].w/2,pos[id].y+pos[id].h+3];
+    const top=id=>[pos[id].x+pos[id].w/2,pos[id].y-4];
+    const bottom=id=>[pos[id].x+pos[id].w/2,pos[id].y+pos[id].h+4];
     const path=(d,kind='system',both=false)=>'<path class="edge '+kind+'" d="'+d+'" marker-end="url(#arrow-'+kind+')"'+(both?' marker-start="url(#arrow-'+kind+')"':'')+'/>';
     let paths='';
-    for(const [from,to] of [['01','02'],['02','03'],['02','04'],['03','05'],['04','05'],['05','06']]){
-      const a=bottom(from),b=top(to),mid=(a[1]+b[1])/2;
-      paths+=path('M '+a.join(' ')+' V '+mid+' H '+b[0]+' V '+b[1]);
+    const a=pos['03'],b=pos['04'],stacked=Math.abs(a.y-b.y)>=20;
+    const edges=stacked?[['01','02'],['02','03'],['04','05'],['05','06']]:[['01','02'],['02','03'],['02','04'],['03','05'],['04','05'],['05','06']];
+    for(const [from,to] of edges){
+      const f=bottom(from),t=top(to),mid=(f[1]+t[1])/2;
+      paths+=path('M '+f.join(' ')+' V '+mid+' H '+t[0]+' V '+t[1]);
     }
-    const a=pos['03'],b=pos['04'];
-    if(Math.abs(a.y-b.y)<20)paths+=path('M '+(a.x+a.w+6)+' '+(a.y+a.h/2)+' H '+(b.x-6),'coupling',true);
-    else paths+=path('M '+(a.x+a.w/2)+' '+(a.y+a.h+6)+' V '+(b.y-6),'coupling',true);
-    const last=bottom('06'),floor=box.height-4,left=8,right=box.width-8;
-    paths+=path('M '+last.join(' ')+' V '+floor+' H '+left+' V '+(pos['01'].y+pos['01'].h/2)+' H '+(pos['01'].x-5),'feedback');
-    for(const id of ['02','03','05']){
-      const p=pos[id],y=p.y+p.h/2;
-      paths+=path('M '+left+' '+y+' H '+(p.x-5),'feedback');
-    }
-    paths+=path('M '+last.join(' ')+' V '+floor+' H '+right+' V '+(b.y+b.h/2)+' H '+(b.x+b.w+5),'feedback');
+    if(!stacked)paths+=path('M '+(a.x+a.w+7)+' '+(a.y+a.h/2)+' H '+(b.x-7),'coupling',true);
+    else paths+=path('M '+(a.x+a.w/2)+' '+(a.y+a.h+7)+' V '+(b.y-7),'coupling',true);
+    const group=network.querySelector('#feedback-stages').getBoundingClientRect();
+    const bracketX=Math.max(24,Math.min(...['01','02','03','04','05'].map(id=>pos[id].x))-22);
+    const groupTop=group.y-box.y+3,groupBottom=group.bottom-box.y-3;
+    const groupMid=(groupTop+groupBottom)/2,railX=Math.max(8,bracketX-28);
+    paths+='<path class="feedback-bracket" d="M '+(bracketX+9)+' '+groupTop+' H '+bracketX+' V '+groupBottom+' H '+(bracketX+9)+'"/>';
+    const last=bottom('06'),floor=box.height-11;
+    paths+=path('M '+last.join(' ')+' V '+floor+' H '+railX+' V '+groupMid+' H '+(bracketX-3),'feedback');
+    const caption=document.getElementById('feedback-caption');
+    caption.style.left=((last[0]+railX)/2)+'px';caption.style.top=floor+'px';
     svg.setAttribute('viewBox','0 0 '+box.width+' '+box.height);
-    svg.innerHTML='<defs>'+['system','coupling','feedback'].map(kind=>'<marker id="arrow-'+kind+'" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto-start-reverse"><path d="M0 0 L6 3 L0 6 Z" class="arrow-'+kind+'"/></marker>').join('')+'</defs>'+paths;
+    svg.innerHTML='<defs>'+['system','coupling','feedback'].map(kind=>'<marker id="arrow-'+kind+'" markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto-start-reverse"><path d="M0 0 L5 2.5 L0 5 Z" class="arrow-'+kind+'"/></marker>').join('')+'</defs>'+paths;
   }
   function home() {
     const domains=DATA.sections.filter(s=>!s.auxiliary);
@@ -219,7 +228,7 @@
       '<section class="home-hero"><div><div class="eyebrow">A LIVING ROBOTICS KNOWLEDGE ATLAS</div>'+
       '<h1>Embodied AI, <em>connected.</em></h1><p class="home-description">理解完整系统，探索核心机制，连接技术知识。</p></div>'+
       '<div class="hero-actions"><a class="btn-primary" href="#lifecycle">探索系统地图</a><a class="btn-secondary" href="#domains">浏览知识领域</a></div></section>'+
-      '<section id="lifecycle">'+heading('SYSTEM OVERVIEW','The Embodied Intelligence Lifecycle','六阶段系统地图 · 执行与学习耦合 · 真实反馈驱动改进')+lifecycleDiagram()+'</section>'+
+      '<section id="lifecycle">'+heading('SYSTEM OVERVIEW','The Embodied Intelligence Lifecycle','')+lifecycleDiagram()+'</section>'+
       '<section>'+heading('CORE MECHANISMS','Explore Core Loops','从三个反馈机制理解机器人怎样执行、学习和持续改进。')+
       '<div class="loop-card-grid">'+ARCH.loops.map(l=>card(l.title,l.question,linkView('loop',l.id),l.steps.map(step=>step.title).join(' · '))).join('')+'</div></section>'+
       '<section id="domains">'+heading('KNOWLEDGE DOMAINS','Knowledge Domains','按技术机制归档，也可以从系统和应用视角探索。')+

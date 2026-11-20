@@ -117,14 +117,15 @@ New educational content is intentionally **outside v0.2 scope**.
 
 - Breadcrumbs express the canonical path: Atlas → primary Domain → Article. Entry Stage, Loop or professional Context stays in a separate source/focus banner, never as an alternative content parent.
 - Explicit Topic/heading links take focus priority; an authored contextual focus is secondary. Default visits retain the complete article. A normal contextual visit starts at the article header and offers an explicit section jump.
-- Desktop navigation can hide completely and release its column. `atlasSidebarCollapsed` stores this local preference. Mobile navigation starts closed, traps focus while open and supports Escape/scrim closing. Navigation group state lasts for the current session.
+- Desktop navigation starts collapsed and can release its entire column. `atlasSidebarCollapsed` stores the user's subsequent local preference. Mobile navigation starts closed, traps focus while open and supports Escape/scrim closing. Navigation group state lasts for the current session.
 - Source return links restore the source view's position within the session; browser Back/Forward restore each history entry's position. Article footers link related knowledge and the Domain rather than a global article sequence.
 - The right-hand article TOC becomes a disclosure above the text when space is limited. Search returns Article and section Topic results, with plain-text matching and Topic/heading aliases.
 - Dialogs manage focus, inert backgrounds and return focus to their opener. Search Enter selection is scoped to its input; native link/button activation remains intact.
 
 ## 9. v0.3 presentation and entry references
 
-- The six-stage topology, three Loops, nine Domains and four Contexts retain their IDs and roles. The homepage uses measured SVG connectors behind normal HTML links: branches/merges, Execution ↔ Learning, and five feedback destinations. Cross-cutting engineering/validation remain a band, not extra Stages.
+- The six-stage topology, three Loops, nine Domains and four Contexts retain their IDs and roles. The homepage uses measured SVG connectors behind normal HTML links: branches/merges, Execution ↔ Learning, and one feedback return to a visibly bracketed Stage 01–05 group. Five feedback destinations remain part of the model; their default visual representation is aggregated. Cross-cutting engineering/validation use a quiet caption rather than extra Stages.
+- `assets/lifecycle.css` owns the lightweight homepage map: no enclosing panel, short Chinese subtitles, restrained node borders and one return-path label. Stage pages retain the full questions and individual cross-stage connections.
 - A view's `articles` array accepts an article ID or an object with exactly one of `article` / `topic` and an optional `reason`. The build resolves it into derived `entries` and an article-ID projection for existing navigation. Never maintain those two derived forms in source.
 - Stage Topic entries can point directly to section Topics. A reference does not imply a complete treatment of the Stage theme; coverage notes can explicitly identify remaining gaps.
 - `#domains` is the homepage's complete Domain overview. Loop overviews link to stable `#loop-step-ID` sections.

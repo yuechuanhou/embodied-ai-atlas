@@ -59,31 +59,7 @@
 .reference-strip nav{display:flex;gap:18px;flex-wrap:wrap;font-size:14px}
 .reference-strip a{text-decoration:none}
 .footer-home{font-size:12px;margin-top:24px}
-/* Nodes remain normal links. SVG renders measured system, coupling and return paths. */
-.lifecycle-map{background:var(--paper);border:1px solid var(--line);border-radius:15px;padding:16px 20px}
-.crosscut-band{display:flex;gap:16px;justify-content:center;align-items:center;flex-wrap:wrap;font-size:12px;background:var(--accent-soft);border-top:2px solid var(--tiffany);border-radius:8px;padding:8px 12px;color:var(--muted)}
-.crosscut-band b{font-weight:650;color:var(--ink)}
-.lifecycle-network{position:relative;padding:14px 0 22px}
-.lifecycle-edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
-.lifecycle-edges .edge{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-linejoin:round}
-.lifecycle-edges .coupling{stroke:var(--accent);stroke-width:2}
-.lifecycle-edges .feedback{stroke:var(--accent);stroke-width:1.25;stroke-dasharray:4 4;opacity:.65}
-.arrow-system{fill:var(--muted)}
-.arrow-coupling,.arrow-feedback{fill:var(--accent)}
-.lifecycle-nodes{display:flex;flex-direction:column;gap:20px;padding:0 40px;position:relative}
-.life-node{display:flex;align-items:center;gap:13px;width:100%;max-width:610px;margin:0 auto;min-height:61px;padding:8px 15px;border:1px solid var(--line);border-radius:10px;background:var(--bg);text-decoration:none;color:var(--ink);transition:border-color .15s,background .15s}
-.life-node:hover,.life-node:focus-visible{border-color:var(--accent);background:var(--accent-soft)}
-.life-num{font-size:14px;font-weight:750;color:var(--accent);flex-shrink:0;width:25px}
-.life-node strong{display:block;font-size:15px;font-weight:700;line-height:1.4}
-.life-node small{display:block;font-size:13px;color:var(--muted);line-height:1.5;margin-top:3px}
-.life-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:64px;width:100%;max-width:840px;margin:auto}
-.life-pair .life-node{height:100%;min-height:82px}
-.map-legend{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;color:var(--muted);font-size:12px}
-.map-legend span{display:flex;align-items:center;gap:7px}
-.legend-line{display:inline-block;width:20px;border-top:1.5px solid var(--muted)}
-.legend-line.coupling{border-color:var(--accent);border-width:2px}
-.legend-line.feedback{border-color:var(--accent);border-style:dashed}
-.atlas-note{font-size:12px;color:var(--muted);line-height:1.8;text-align:center;margin:10px auto 0;max-width:850px}
+.atlas-note{font-size:13px;color:var(--muted);line-height:1.8;text-align:center;margin:10px auto 0;max-width:850px}
 /* Index views and compact Topic references. */
 .view-header{padding:35px 0 16px;border-bottom:1px solid var(--line)}
 .view-header h1{font-size:clamp(28px,3.2vw,40px);line-height:1.3;letter-spacing:-1px;margin:12px 0}
@@ -176,18 +152,6 @@
   .home-hero h1{font-size:31px}
   .hero-actions{gap:9px}
   .btn-primary,.btn-secondary{flex:1;padding:10px;font-size:14px;min-height:44px}
-  .lifecycle-map{padding:13px 10px}
-  .crosscut-band{gap:4px 12px;font-size:12px}
-  .crosscut-band>span{width:100%;text-align:center}
-  .lifecycle-nodes{padding:0 18px;gap:25px}
-  .life-pair{grid-template-columns:1fr;gap:29px;border:1px dashed var(--line);padding:9px;border-radius:11px}
-  .life-node{padding:11px;gap:8px;min-height:74px}
-  .life-node strong{font-size:14px}
-  .life-node small{font-size:13px}
-  .life-pair .life-node{min-height:74px}
-  .life-num{width:20px;font-size:13px}
-  .map-legend{gap:7px 12px}
-  .map-legend span{font-size:11px}
   .view-header h1{font-size:29px;letter-spacing:-.7px;overflow-wrap:anywhere}
   .stage-topic{padding:16px}
   .stage-topic-title h3{font-size:16px}

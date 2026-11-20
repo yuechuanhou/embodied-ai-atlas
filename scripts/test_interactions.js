@@ -16,7 +16,7 @@ function boot(path='?page=home',options={}){
     w.requestAnimationFrame=callback=>callback();
     w.HTMLElement.prototype.scrollIntoView=function(){w.lastScrolled=this.id;};
     w.matchMedia=()=>({matches:!!options.narrow,addEventListener(){}});
-    if(options.collapsed)w.localStorage.setItem('atlasSidebarCollapsed','true');
+    if(options.collapsed!==undefined)w.localStorage.setItem('atlasSidebarCollapsed',String(options.collapsed));
   }});
   const w=dom.window,d=w.document;
   assert.deepEqual(errors,[]);
@@ -27,7 +27,8 @@ function boot(path='?page=home',options={}){
 }
 
 test('desktop sidebar hides, releases its column, persists and reopens',()=>{
-  const {d,w,click}=boot();
+  assert(boot().d.getElementById('sidebar').hidden,'First visit starts with navigation tucked away');
+  const {d,w,click}=boot('?page=home',{collapsed:false});
   assert.equal(d.getElementById('sidebar').hidden,false);
   click('#nav-toggle');
   assert(d.getElementById('sidebar').hidden);
@@ -174,4 +175,13 @@ test('offline file links retain native navigation and theme toggles without stor
   assert.equal(link.search,'?view=stage&id=03');
   click('#theme-button');assert.equal(d.documentElement.getAttribute('data-theme'),'dark');
   click('#theme-button');assert.equal(d.documentElement.getAttribute('data-theme'),'light');
+});
+
+test('minimal map groups feedback targets 01–05 and retains all six Stage links',()=>{
+  const {d}=boot();
+  assert.deepEqual([...d.querySelectorAll('#feedback-stages [data-stage]')].map(x=>x.dataset.stage),['01','02','03','04','05']);
+  assert.equal(d.querySelectorAll('.lifecycle-map [data-stage]').length,6);
+  assert.equal(d.querySelector('[data-stage="06"]').closest('#feedback-stages'),null);
+  assert(d.getElementById('feedback-caption').textContent.includes('01–05'));
+  assert.equal(d.querySelector('[data-stage="03"]').search,'?view=stage&id=03');
 });
