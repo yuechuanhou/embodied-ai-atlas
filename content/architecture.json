@@ -40,9 +40,6 @@
           "articles": []
         }
       ],
-      "loops": [
-        "engineering"
-      ],
       "connections": [
         {
           "to": "02",
@@ -97,10 +94,6 @@
           ]
         }
       ],
-      "loops": [
-        "engineering",
-        "execution"
-      ],
       "connections": [
         {
           "to": "03",
@@ -154,9 +147,6 @@
             "model-architecture"
           ]
         }
-      ],
-      "loops": [
-        "execution"
       ],
       "connections": [
         {
@@ -215,9 +205,6 @@
           ]
         }
       ],
-      "loops": [
-        "learning"
-      ],
       "connections": [
         {
           "to": "03",
@@ -273,10 +260,6 @@
           ]
         }
       ],
-      "loops": [
-        "engineering",
-        "execution"
-      ],
       "connections": [
         {
           "to": "02",
@@ -329,11 +312,6 @@
             "data-recipe"
           ]
         }
-      ],
-      "loops": [
-        "execution",
-        "learning",
-        "engineering"
       ],
       "connections": [
         {

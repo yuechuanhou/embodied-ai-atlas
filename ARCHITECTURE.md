@@ -105,3 +105,10 @@ Content rules: first search for an existing Topic, then extend it or create a ne
 - Data validation, static build, JS syntax checks and GitHub Pages deployment.
 
 New educational content is intentionally **outside v0.2 scope**.
+
+## 7. Relationship and identity maintenance
+
+- Author Stage–Loop membership only in `architecture.json` → `loops[].stages`. The build derives each Stage's `loops` list; source Stage objects must not duplicate it.
+- `content/anchors.json` freezes identities for registered Topic and Focus headings. When renaming a heading, update its heading lookup while keeping its `id`; retain additional historic slugs in `aliases`. The build also emits the current title slug and legacy `section-N` aliases.
+- Same-article Topic relations are valid and visible. Relation UI names both the subject and object and derives incoming labels. Legacy reciprocal associations are deduplicated; stronger typed relations take display priority over broad article associations.
+- `scripts/legacy_articles.json` protects historic article IDs while allowing new articles. Tests must not fix the total article count at 26.
