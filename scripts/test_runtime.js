@@ -37,7 +37,7 @@ function render(search) {
 const home = render('?page=home');
 assert(home.includes('The Embodied Intelligence Lifecycle'));
 assert(home.includes('Robot Execution Loop'));
-assert(home.includes('Data & Learning'));
+assert(home.includes('Data &amp; Learning'));
 const stage = render('?view=stage&id=04');
 assert(stage.includes('Five Second-Level Topics'));
 assert(stage.includes('Data Recipe'));
