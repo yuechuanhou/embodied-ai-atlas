@@ -66,6 +66,20 @@ for p in entries:
 topic_ids = ids + [t["id"] for t in registry["topics"]]
 check_unique(topic_ids, "topic IDs")
 known_topics = set(topic_ids)
+topic_articles = {**{p: p for p in ids}, **{t['id']: t['article'] for t in registry['topics']}}
+
+def ref_article(ref):
+    if isinstance(ref, str):
+        return ref
+    if not isinstance(ref, dict) or len(set(ref) & {'topic', 'article'}) != 1:
+        errors.append(f"Entry requires one article or topic target: {ref}")
+        return None
+    key = ref.get('topic', ref.get('article'))
+    if key not in topic_articles:
+        errors.append(f"Unknown entry target: {key}")
+    if 'article' in ref and key not in known:
+        errors.append(f"Unknown article entry: {key}")
+    return topic_articles.get(key)
 for topic in registry["topics"]:
     article = topic["article"]
     if article not in known:
@@ -101,7 +115,7 @@ for stage in stages:
         if not t["id"].startswith(stage["id"] + "."):
             errors.append(f"Invalid subtopic ID: {t['id']}")
         for p in t["articles"]:
-            if p not in known:
+            if ref_article(p) not in known:
                 errors.append(f"Unknown stage article: {p}")
     if "loops" in stage:
         errors.append(f"{stage['id']}: author membership in loops[].stages only")
@@ -116,22 +130,22 @@ for loop in loops:
             errors.append(f"Unknown linked stage: {sid}")
     for step in loop["steps"]:
         for p in step["articles"]:
-            if p not in known:
+            if ref_article(p) not in known:
                 errors.append(f"Unknown loop article: {p}")
     for x in loop.get("interactions", []):
         if x["to"] not in loop_ids:
             errors.append(f"Unknown cross-loop target: {x['to']}")
 for context in contexts:
     for p in context["articles"]:
-        if p not in known:
+        if ref_article(p) not in known:
             errors.append(f"Unknown context article: {p}")
 view_articles = {}
 for stage in stages:
-    view_articles['stage:' + stage['id']] = {p for t in stage['topics'] for p in t['articles']}
+    view_articles['stage:' + stage['id']] = {ref_article(p) for t in stage['topics'] for p in t['articles']}
 for loop in loops:
-    view_articles['loop:' + loop['id']] = {p for step in loop['steps'] for p in step['articles']}
+    view_articles['loop:' + loop['id']] = {ref_article(p) for step in loop['steps'] for p in step['articles']}
 for context in contexts:
-    view_articles['context:' + context['id']] = set(context['articles'])
+    view_articles['context:' + context['id']] = {ref_article(p) for p in context['articles']}
 for focus in registry['focus']:
     if focus['article'] not in view_articles.get(focus['view'], set()):
         errors.append(f"Focus article not referenced by view: {focus['view']} / {focus['article']}")

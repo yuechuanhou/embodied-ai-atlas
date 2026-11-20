@@ -1,4 +1,4 @@
-# Embodied AI Atlas — Architecture Specification v0.2
+# Embodied AI Atlas — Architecture Specification v0.3
 
 > System-centric · Knowledge-driven · Context-aware
 
@@ -121,3 +121,11 @@ New educational content is intentionally **outside v0.2 scope**.
 - Source return links restore the source view's position within the session; browser Back/Forward restore each history entry's position. Article footers link related knowledge and the Domain rather than a global article sequence.
 - The right-hand article TOC becomes a disclosure above the text when space is limited. Search returns Article and section Topic results, with plain-text matching and Topic/heading aliases.
 - Dialogs manage focus, inert backgrounds and return focus to their opener. Search Enter selection is scoped to its input; native link/button activation remains intact.
+
+## 9. v0.3 presentation and entry references
+
+- The six-stage topology, three Loops, nine Domains and four Contexts retain their IDs and roles. The homepage uses measured SVG connectors behind normal HTML links: branches/merges, Execution ↔ Learning, and five feedback destinations. Cross-cutting engineering/validation remain a band, not extra Stages.
+- A view's `articles` array accepts an article ID or an object with exactly one of `article` / `topic` and an optional `reason`. The build resolves it into derived `entries` and an article-ID projection for existing navigation. Never maintain those two derived forms in source.
+- Stage Topic entries can point directly to section Topics. A reference does not imply a complete treatment of the Stage theme; coverage notes can explicitly identify remaining gaps.
+- `#domains` is the homepage's complete Domain overview. Loop overviews link to stable `#loop-step-ID` sections.
+- Tiffany-inspired accents use `#81d8d0` for emphasis and a deeper `#08787e` for light-theme links. Neutral cool surfaces and graphite text keep the reading interface restrained. Dark-theme accents retain the lighter blue. Text palette contrast is checked against both reading surfaces.

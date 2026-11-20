@@ -121,3 +121,46 @@ test('same-article typed relations contain links to both endpoints',()=>{
   assert(relation);assert.equal(relation.querySelectorAll('a').length,2);
   assert([...relation.querySelectorAll('a')].every(x=>x.hash));
 });
+
+test('home domain shortcut goes to all nine Domains',()=>{
+  const {d,w,click}=boot();
+  click('.hero-actions a[href="#domains"]');
+  assert.equal(w.location.hash,'#domains');assert.equal(w.lastScrolled,'domains');
+  assert.equal(d.querySelectorAll('#domains .domain-card').length,9);
+});
+
+test('all Loop overview links have real local targets',()=>{
+  for(const id of ['execution','learning','engineering']){
+    const {d}=boot('?view=loop&id='+id);
+    const links=[...d.querySelectorAll('.loop-overview a')];assert.equal(links.length,5);
+    for(const link of links)assert(d.getElementById(decodeURIComponent(link.hash.slice(1))),link.href);
+  }
+});
+
+test('Stage Topic entries use the chosen section rather than the general Stage focus',()=>{
+  const {d,click}=boot('?view=stage&id=03');
+  click('.knowledge-rows a[href*="%E7%9B%B8%E6%9C%BA"]');
+  assert(d.querySelector('.reading-focus').textContent.includes('相机内参和外参'));
+  assert(d.querySelector('.context-focus').textContent.includes('当前阅读章节：相机内参和外参'));
+  assert(d.getElementById('vio-visual-inertial-odometry'),'Complete article remains available');
+});
+
+test('short Latin abbreviations do not match inside unrelated words',()=>{
+  const {d,search}=boot();search('VIO');
+  assert.equal(d.querySelector('#search-results a[href="?page=company-pi"]'),null,'Behavior must not match VIO');
+});
+
+test('light and dark text colors retain 4.5:1 contrast on both reading surfaces',()=>{
+  const css=fs.readFileSync('assets/site.css','utf8');
+  const luminance=hex=>{
+    const rgb=[0,2,4].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);
+    return rgb.reduce((sum,x,i)=>sum+x*[.2126,.7152,.0722][i],0);
+  };
+  for(const block of css.split('}').slice(0,2)){
+    const colors=Object.fromEntries([...block.matchAll(/--([a-z-]+):#([0-9a-f]{6})/g)].map(m=>[m[1],m[2]]));
+    for(const text of ['ink','muted','faint','accent'])for(const surface of ['bg','paper']){
+      const a=luminance(colors[text]),b=luminance(colors[surface]);
+      assert((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5,text+' on '+surface);
+    }
+  }
+});

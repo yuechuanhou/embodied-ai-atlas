@@ -1,5 +1,5 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "tagline": "Understand the system · Explore the mechanisms · Connect the knowledge",
   "principles": [
     "One topic, one canonical location",
@@ -89,7 +89,10 @@
           "id": "02.5",
           "title": "Robot Description & System Architecture",
           "articles": [
-            "geometry-and-frames",
+            {
+              "topic": "urdf",
+              "reason": "机器人结构与运动链的描述入口。"
+            },
             "robotics-stack"
           ]
         }
@@ -114,15 +117,28 @@
           "id": "03.1",
           "title": "Perception",
           "articles": [
-            "sensors-and-estimation"
+            {
+              "topic": "camera-calibration",
+              "reason": "从相机模型和坐标关系进入感知几何。"
+            }
           ]
         },
         {
           "id": "03.2",
           "title": "State Estimation & Localization",
           "articles": [
-            "sensors-and-estimation",
-            "geometry-and-frames"
+            {
+              "topic": "vio",
+              "reason": "融合视觉与惯性观测估计机器人运动。"
+            },
+            {
+              "topic": "slam",
+              "reason": "连接状态估计、地图与长期一致性。"
+            },
+            {
+              "topic": "coordinate-frames",
+              "reason": "状态估计所依赖的坐标约定。"
+            }
           ]
         },
         {
@@ -136,7 +152,14 @@
           "id": "03.4",
           "title": "Motion Planning & Manipulation",
           "articles": [
-            "geometry-and-frames"
+            {
+              "topic": "fk",
+              "reason": "从关节状态理解末端位姿。"
+            },
+            {
+              "topic": "ik",
+              "reason": "从末端目标进入关节运动学。"
+            }
           ]
         },
         {
@@ -144,7 +167,10 @@
           "title": "Control & Physical Interaction",
           "articles": [
             "robotics-stack",
-            "model-architecture"
+            {
+              "topic": "action-representation",
+              "reason": "连接策略动作输出与物理执行。"
+            }
           ]
         }
       ],
@@ -242,7 +268,10 @@
           "title": "Synchronization & Interfaces",
           "articles": [
             "data-pipeline",
-            "geometry-and-frames"
+            {
+              "topic": "tf",
+              "reason": "运行时坐标变换与接口一致性。"
+            }
           ]
         },
         {
@@ -280,21 +309,30 @@
           "id": "06.1",
           "title": "Verification & Validation",
           "articles": [
-            "quality-evaluation"
+            {
+              "article": "quality-evaluation",
+              "reason": "现有评估方法参考；系统级 V&V 尚未收录专文。"
+            }
           ]
         },
         {
           "id": "06.2",
           "title": "Robot & Model Performance Evaluation",
           "articles": [
-            "quality-evaluation"
+            {
+              "article": "quality-evaluation",
+              "reason": "关注真实任务成功率、泛化与模型收益。"
+            }
           ]
         },
         {
           "id": "06.3",
           "title": "Safety, Reliability & Performance",
           "articles": [
-            "quality-evaluation"
+            {
+              "article": "quality-evaluation",
+              "reason": "现有内容覆盖数据与模型评估；安全与可靠性尚未收录专文。"
+            }
           ]
         },
         {

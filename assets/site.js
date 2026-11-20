@@ -69,12 +69,20 @@
   const viewHref = ctx => {const [type,id] = ctx.split(':');return linkView(type,id);};
   const card = (title,body,url,extra='') =>
     '<a class="atlas-card" href="' + eattr(url) + '"><span class="atlas-card-title">' + esc(title) +
-    ' <span aria-hidden="true">↗</span></span><span class="atlas-card-body">' + esc(body || '') +
+    '</span><span class="atlas-card-body">' + esc(body || '') +
     '</span>' + (extra ? '<small>' + esc(extra) + '</small>' : '') + '</a>';
   const articleCards = (ids,ctx='',empty='此主题目前没有单独收录的文章；以后可随学习自然扩展。') => {
     const pages=unique(ids).map(id => byId[id]);
     if (!pages.length) return '<p class="empty-hint">' + esc(empty) + '</p>';
     return '<div class="atlas-card-grid">' + pages.map(p => card(p.title,p.summary,articleLink(p,ctx),sections[p.primary_domain].name)).join('') + '</div>';
+  };
+  const knowledgeEntries=(entries,ctx='')=>{
+    if(!entries?.length)return '<p class="empty-hint">保留主题位置 · 尚未收录专文</p>';
+    return '<ul class="knowledge-rows">'+entries.map(entry=>{
+      const p=byId[entry.article];
+      return '<li><a href="'+eattr(articleLink(p,ctx,entry.anchor))+'">'+esc(entry.title)+'</a><p>'+esc(entry.reason||p.summary)+
+        '</p><small>'+esc(sections[p.primary_domain].name)+(entry.anchor?' · Topic':'')+'</small></li>';
+    }).join('')+'</ul>';
   };
   const heading = (k,title,subtitle) =>
     '<div class="section-heading"><div><div class="section-kicker">' + esc(k) +
@@ -144,6 +152,7 @@
     button.setAttribute('aria-label',visible?'Hide navigation':'Show navigation');
     document.body.style.overflow=(searchOpen||(narrow&&visible))?'hidden':'';
     document.querySelector('.workspace')?.toggleAttribute('inert',narrow&&visible);
+    requestAnimationFrame(drawLifecycleEdges);
     if(focusDrawer&&narrow&&visible)sidebar.querySelector('button')?.focus();
   }
   function closeNavigation() {
@@ -162,53 +171,64 @@
   }
 
   function lifecycleDiagram() {
-    const row = id => {
+    const node=id=>{
       const s=stageById[id];
-      return '<a class="life-node" href="' + eattr(linkView('stage',id)) + '"><span class="life-num">' + id +
-        '</span><div><strong>' + esc(s.title) + '</strong><small>' + esc(s.question) + '</small></div><span class="life-open">↗</span></a>';
+      return '<a class="life-node" data-stage="'+id+'" href="'+eattr(linkView('stage',id))+'"><span class="life-num">'+id+
+        '</span><div><strong>'+esc(s.title)+'</strong><small>'+esc(s.question)+'</small></div></a>';
     };
-    return '<div class="lifecycle-map" aria-label="Embodied Intelligence Lifecycle">' +
-      row('01') + '<div class="life-arrow">↓ <span>requirements guide system architecture</span></div>' +
-      row('02') + '<div class="life-arrow">↓</div>' +
-      '<div class="life-dual"><div>' + row('03') + '<span class="life-caption">Execution mechanism</span></div>' +
-      '<span class="life-dual-link" aria-label="Execution and Learning exchange">↔</span>' +
-      '<div>' + row('04') + '<span class="life-caption">Learning mechanism</span></div></div>' +
-      '<div class="life-arrow">↓ <span>integrated into a working system</span></div>' +
-      row('05') + '<div class="life-arrow">↓</div>' + row('06') +
-      '<div class="life-feedback">↺ &nbsp; Evaluation feeds back to 01–05: requirements, hardware, execution, learning and integration</div>' +
-      '<p class="atlas-note">这是系统关系地图，而不是必须按顺序执行的瀑布开发流程。感知与执行和数据学习相互作用，集成与验证贯穿整个过程。</p></div>';
+    return '<div class="lifecycle-map" role="group" aria-label="Embodied Intelligence Lifecycle" aria-describedby="lifecycle-description">'+
+      '<div class="crosscut-band"><span>贯穿全程</span><b>Systems Engineering</b><b>Verification &amp; Validation</b></div>'+
+      '<div class="lifecycle-network" id="lifecycle-network"><svg class="lifecycle-edges" aria-hidden="true" focusable="false"></svg>'+
+      '<div class="lifecycle-nodes">'+node('01')+node('02')+'<div class="life-pair">'+node('03')+node('04')+'</div>'+node('05')+node('06')+'</div></div>'+
+      '<div class="map-legend"><span><i class="legend-line"></i>系统关系</span><span><i class="legend-line coupling"></i>执行 ↔ 学习</span><span><i class="legend-line feedback"></i>06 反馈至 01–05</span></div>'+
+      '<p id="lifecycle-description" class="atlas-note">01 → 02 → {03 ↔ 04} → 05 → 06。反馈可修订需求、本体、执行、学习和集成；这些关系不规定开发顺序。</p></div>';
+  }
+  function drawLifecycleEdges(){
+    const network=document.getElementById('lifecycle-network');if(!network)return;
+    const svg=network.querySelector('svg'),box=network.getBoundingClientRect();if(!box.width)return;
+    const pos={};
+    for(const el of network.querySelectorAll('[data-stage]')){
+      const b=el.getBoundingClientRect();pos[el.dataset.stage]={x:b.x-box.x,y:b.y-box.y,w:b.width,h:b.height};
+    }
+    if(Object.keys(pos).length!==6)return;
+    const top=id=>[pos[id].x+pos[id].w/2,pos[id].y-3];
+    const bottom=id=>[pos[id].x+pos[id].w/2,pos[id].y+pos[id].h+3];
+    const path=(d,kind='system',both=false)=>'<path class="edge '+kind+'" d="'+d+'" marker-end="url(#arrow-'+kind+')"'+(both?' marker-start="url(#arrow-'+kind+')"':'')+'/>';
+    let paths='';
+    for(const [from,to] of [['01','02'],['02','03'],['02','04'],['03','05'],['04','05'],['05','06']]){
+      const a=bottom(from),b=top(to),mid=(a[1]+b[1])/2;
+      paths+=path('M '+a.join(' ')+' V '+mid+' H '+b[0]+' V '+b[1]);
+    }
+    const a=pos['03'],b=pos['04'];
+    if(Math.abs(a.y-b.y)<20)paths+=path('M '+(a.x+a.w+6)+' '+(a.y+a.h/2)+' H '+(b.x-6),'coupling',true);
+    else paths+=path('M '+(a.x+a.w/2)+' '+(a.y+a.h+6)+' V '+(b.y-6),'coupling',true);
+    const last=bottom('06'),floor=box.height-4,left=8,right=box.width-8;
+    paths+=path('M '+last.join(' ')+' V '+floor+' H '+left+' V '+(pos['01'].y+pos['01'].h/2)+' H '+(pos['01'].x-5),'feedback');
+    for(const id of ['02','03','05']){
+      const p=pos[id],y=p.y+p.h/2;
+      paths+=path('M '+left+' '+y+' H '+(p.x-5),'feedback');
+    }
+    paths+=path('M '+last.join(' ')+' V '+floor+' H '+right+' V '+(b.y+b.h/2)+' H '+(b.x+b.w+5),'feedback');
+    svg.setAttribute('viewBox','0 0 '+box.width+' '+box.height);
+    svg.innerHTML='<defs>'+['system','coupling','feedback'].map(kind=>'<marker id="arrow-'+kind+'" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto-start-reverse"><path d="M0 0 L6 3 L0 6 Z" class="arrow-'+kind+'"/></marker>').join('')+'</defs>'+paths;
   }
   function home() {
-    const domains=DATA.sections.filter(s => !s.auxiliary);
-    return '<main class="page-container atlas-home">' +
-      '<section class="home-hero"><div class="eyebrow">A LIVING ROBOTICS KNOWLEDGE ATLAS</div>' +
-      '<h1>Embodied AI,<br><em>from systems to intelligence.</em></h1>' +
-      '<div class="home-title-cn">理解完整系统 · 探索核心机制 · 连接技术知识</div>' +
-      '<p class="home-description">以机器人系统生命周期为主线，连接机器人本体、感知与控制、具身数据、机器人学习、系统集成及真实部署。每个知识点只有一份权威内容，从不同视角进入时突出不同的阅读重点。</p>' +
-      '<div class="hero-actions"><a class="btn-primary" href="#lifecycle">Explore the lifecycle →</a>' +
-      '<a class="btn-secondary" href="' + linkView('domain','data') + '">Browse knowledge domains ↗</a></div>' +
-      '<div class="home-statline">' + stat(PAGES.length,'canonical articles') +
-      stat(ARCH.lifecycle.length,'system stages') + stat(ARCH.loops.length,'core loops') +
-      stat(domains.length,'knowledge domains') + '</div></section>' +
-      '<section id="lifecycle">' + heading('01 / SYSTEM OVERVIEW','The Embodied Intelligence Lifecycle',
-      '六阶段的完整系统认知：03 与 04 双向耦合，06 的反馈可以返回任何前置环节。') +
-      lifecycleDiagram() + '</section>' +
-      '<section>' + heading('02 / CORE MECHANISMS','Explore Core Loops','理解机器人怎样执行、学习以及通过工程验证持续改进。') +
-      blocks(ARCH.loops.map(l => card(l.title,l.question,linkView('loop',l.id),'Feedback: ' + l.feedback))) + '</section>' +
-      '<section>' + heading('03 / CANONICAL ORGANIZATION','Knowledge Domains','每篇文章只有一个主归档位置，其他视角只提供引用。') +
-      '<div class="domain-grid">' + domains.map((s,i) =>
-        '<a class="domain-card" href="' + eattr(linkView('domain',s.id)) +
-        '"><span class="domain-num">' + String(i+1).padStart(2,'0') + ' / ' + esc(s.eyebrow) +
-        '</span><h3>' + esc(s.name) + '</h3><p>' + PAGES.filter(p=>p.primary_domain===s.id).length +
-        ' canonical articles</p><div class="domain-bottom"><span>Explore the domain</span><b>↗</b></div></a>').join('') + '</div></section>' +
-      '<section>' + heading('04 / PRACTICE & APPLICATION','Explore by Context','专业视角是访问知识的入口，不随雇主或岗位名称改变知识的归属。') +
-      blocks(ARCH.contexts.map(c => card(c.title,c.description,linkView('context',c.id),c.subtitle))) + '</section>' +
-      '<section>' + heading('RESEARCH / REFERENCE','Research & Knowledge Connections',
-      '行业研究、论文索引、术语与知识架构。') +
-      blocks([card('Industry & Research','公司、模型版本与技术路线',linkView('domain','industry')),
-        card('Glossary','中英文技术术语速查',linkArticle('glossary')),
-        card('Papers & Official Sources','优先使用原始论文与技术报告',linkArticle('reading-list'))]) + '</section>' +
-      '<div class="footer-home">Embodied AI Atlas · Markdown is the canonical source · Architecture v0.2 · No fixed curriculum</div></main>';
+    const domains=DATA.sections.filter(s=>!s.auxiliary);
+    return '<main class="page-container atlas-home">'+
+      '<section class="home-hero"><div><div class="eyebrow">A LIVING ROBOTICS KNOWLEDGE ATLAS</div>'+
+      '<h1>Embodied AI, <em>connected.</em></h1><p class="home-description">理解完整系统，探索核心机制，连接技术知识。</p></div>'+
+      '<div class="hero-actions"><a class="btn-primary" href="#lifecycle">探索系统地图</a><a class="btn-secondary" href="#domains">浏览知识领域</a></div></section>'+
+      '<section id="lifecycle">'+heading('SYSTEM OVERVIEW','The Embodied Intelligence Lifecycle','六阶段系统地图 · 执行与学习耦合 · 真实反馈驱动改进')+lifecycleDiagram()+'</section>'+
+      '<section>'+heading('CORE MECHANISMS','Explore Core Loops','从三个反馈机制理解机器人怎样执行、学习和持续改进。')+
+      '<div class="loop-card-grid">'+ARCH.loops.map(l=>card(l.title,l.question,linkView('loop',l.id),l.steps.map(step=>step.title).join(' · '))).join('')+'</div></section>'+
+      '<section id="domains">'+heading('KNOWLEDGE DOMAINS','Knowledge Domains','按技术机制归档，也可以从系统和应用视角探索。')+
+      '<div class="domain-grid">'+domains.map(s=>'<a class="domain-card" href="'+eattr(linkView('domain',s.id))+'"><span class="domain-num">'+esc(s.eyebrow)+
+        '</span><h3>'+esc(s.name)+'</h3><p>'+PAGES.filter(p=>p.primary_domain===s.id).length+' 篇文章</p></a>').join('')+'</div></section>'+
+      '<section>'+heading('PRACTICE & APPLICATION','Explore by Context','围绕实际关注的问题连接不同领域。')+
+      blocks(ARCH.contexts.map(c=>card(c.title,c.description,linkView('context',c.id))))+'</section>'+
+      '<section class="reference-strip"><div><span class="section-kicker">RESEARCH & REFERENCE</span><p>'+PAGES.length+' 篇文章 · '+DATA.topics.length+' 个知识点</p></div>'+
+      '<nav aria-label="Research and reference"><a href="'+linkView('domain','industry')+'">Industry & Research</a><a href="'+linkArticle('glossary')+'">Glossary</a><a href="'+linkArticle('reading-list')+'">Papers & Sources</a></nav></section>'+
+      '<div class="footer-home">Embodied AI Atlas · A growing map of systems, mechanisms and knowledge</div></main>';
   }
 
   const pageShell = (label,title,summary,body) =>
@@ -218,10 +238,10 @@
   function stagePage(id) {
     const s=stageById[id],ctx='stage:'+id;
     let body = '<section>' + heading('SYSTEM ROLE','Five Second-Level Topics',
-      '主题是长期稳定的知识位置；只有已存在的文章才会显示链接。') +
+      '从主题进入相关知识；尚未收录的部分保留概念位置。') +
       '<div class="stage-topics">' + s.topics.map(t =>
         '<div class="stage-topic"><div class="stage-topic-title"><span>' + esc(t.id) + '</span><h3>' +
-        esc(t.title) + '</h3></div>' + articleCards(t.articles,ctx) + '</div>').join('') +
+        esc(t.title) + '</h3></div>' + knowledgeEntries(t.entries,ctx) + '</div>').join('') +
       '</div></section><section>' + heading('CROSS-SYSTEM CONNECTIONS','How this stage connects') +
       blocks(s.connections.map(c => card(stageById[c.to].title,c.label,linkView('stage',c.to),'Stage '+c.to))) +
       '</section><section>' + heading('ASSOCIATED LOOPS','Participating mechanisms') +
@@ -231,11 +251,11 @@
   }
   function loopPage(id) {
     const l=loopById[id],ctx='loop:'+id;
-    let body='<section>' + heading('MECHANISM','Process & Feedback','每个机制节点链接已有知识，且不复制原始文章。') +
-      '<div class="loop-steps">' + l.steps.map((s,i) =>
-        '<div class="loop-step"><div class="loop-step-title"><span>' + String(i+1).padStart(2,'0') +
+    let body='<section>' + heading('MECHANISM','Process & Feedback','从任一步骤进入相关知识，再沿反馈关系理解完整机制。') +
+      '<nav class="loop-overview" aria-label="Loop mechanism">'+l.steps.map((step,i)=>'<a href="#loop-step-'+esc(step.id)+'"><small>'+String(i+1).padStart(2,'0')+'</small>'+esc(step.title)+'</a>').join('')+'<span class="loop-overview-feedback">↺ '+esc(l.feedback)+'</span></nav><div class="loop-steps">' + l.steps.map((s,i) =>
+        '<div class="loop-step" id="loop-step-'+eattr(s.id)+'"><div class="loop-step-title"><span>' + String(i+1).padStart(2,'0') +
         '</span><div><h3>' + esc(s.title) + '</h3><p>' + esc(s.detail) + '</p></div></div>' +
-        articleCards(s.articles,ctx) + '</div>').join('') + '</div>' +
+        knowledgeEntries(s.entries,ctx) + '</div>').join('') + '</div>' +
       '<div class="loop-return">↺ &nbsp; ' + esc(l.feedback) + '</div></section>' +
       '<section>' + heading('SYSTEM PARTICIPATION','Related Lifecycle Stages') +
       blocks(l.stages.map(sid => card('Stage '+sid+' · '+stageById[sid].title,stageById[sid].question,linkView('stage',sid)))) +
@@ -246,20 +266,20 @@
   function domainPage(id) {
     const s=sections[id],articles=PAGES.filter(p=>p.primary_domain===id);
     let body='<section>' + heading('CANONICAL ARTICLES','Knowledge in this domain',
-      '文章在此具有唯一主归档；其他视角仅作关联引用。') +
+      '浏览本领域已经收录的文章与技术主题。') +
       articleCards(articles.map(p=>p.id)) + '</section>';
     const subtopics=DATA.topics.filter(t=>t.kind==='section' && t.primary_domain===id);
     if(subtopics.length) body += '<section>' + heading('SECTION-LEVEL TOPICS','Concepts within existing articles',
-      '同一篇 Markdown 可包含多个有独立身份的知识点。') +
+      '直接进入文章中对应的技术章节。') +
       blocks(subtopics.map(t => card(t.title,'Canonical section in '+byId[t.article].title,
         linkArticle(t.article,'',t.anchor),'Topic: '+t.id))) + '</section>';
     return pageShell('KNOWLEDGE DOMAIN / '+s.eyebrow,s.name,
-      '权威归档：'+articles.length+' 篇文章。可通过 Lifecycle、Loop 和 Context 从不同视角访问。',body);
+      articles.length+' 篇文章 · 按技术机制组织的领域目录',body);
   }
   function contextPage(id) {
     const c=contextById[id];
     const body='<section>'+heading('CROSS-DOMAIN ENTRIES','Relevant Knowledge',
-      '这些链接来自不同 Domain，但都指向各自唯一的原始文章。') +
+      '选择与你当前问题相关的知识入口。') +
       articleCards(c.articles,'context:'+id)+'</section>';
     return pageShell('PROFESSIONAL CONTEXT',c.title,c.description,body);
   }
@@ -288,6 +308,9 @@
   }
   function focusForArticle(articleId,ctx) {
     if(!articleInContext(articleId,ctx))return null;
+    let anchor='';try{anchor=decodeURIComponent(location.hash.slice(1));}catch(_){}
+    const section=byId[articleId].toc.find(t=>t.id===anchor);
+    if(section)return {view:ctx,reason:'当前阅读章节：'+section.title,anchor};
     const explicit=DATA.focus.find(f=>f.article===articleId && f.view===ctx);
     if(explicit)return explicit;
     return {view:ctx,reason:'这篇文章与当前视角相关。可以阅读完整原文，并探索相邻系统环节。',anchor:null};
@@ -370,6 +393,9 @@
   }
 
   const topicsByArticle=Object.fromEntries(PAGES.map(p=>[p.id,DATA.topics.filter(t=>t.article===p.id)]));
+  const containsTerm=(text,term)=>/^[a-z0-9_-]{1,3}$/.test(term)
+    ? new RegExp('(^|[^a-z0-9])'+term+'($|[^a-z0-9])').test(text)
+    : text.includes(term);
   const findResults=q=>{
     const query=q.trim().toLowerCase();
     if(!query)return PAGES.slice(0,7).map(p=>({p,topic:null,score:0}));
@@ -379,14 +405,14 @@
       const title=p.title.toLowerCase(),tags=p.tags.join(' ').toLowerCase();
       let score=0;
       for(const term of terms){
-        if(title.includes(term))score+=20;
-        if(tags.includes(term))score+=10;
-        if(p.summary.toLowerCase().includes(term))score+=6;
-        if(plain.includes(term))score+=1;
+        if(containsTerm(title,term))score+=20;
+        if(containsTerm(tags,term))score+=10;
+        if(containsTerm(p.summary.toLowerCase(),term))score+=6;
+        if(containsTerm(plain,term))score+=1;
       }
       for(const topic of topicsByArticle[p.id].filter(t=>t.kind==='section')){
         const aliases=[topic.title,topic.id,topic.heading,...(topic.aliases||[])].join(' ').toLowerCase();
-        const matching=terms.filter(term=>aliases.includes(term)).length;
+        const matching=terms.filter(term=>containsTerm(aliases,term)).length;
         if(matching)results.push({p,topic,score:30*matching+(topic.id===query?30:0)});
       }
       if(score)results.push({p,topic:null,score});
@@ -487,6 +513,7 @@
   window.addEventListener('pagehide',rememberPosition);
   window.addEventListener('hashchange',()=>applyReadingFocus(route()));
   if(typeof matchMedia==='function')matchMedia('(max-width: 800px)').addEventListener('change',()=>{sidebarOpen=false;syncNavigation();});
+  window.addEventListener('resize',()=>requestAnimationFrame(drawLifecycleEdges));
   history.scrollRestoration='manual';
   render();
 })();
