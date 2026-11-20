@@ -31,6 +31,8 @@ python scripts/test_content.py
 
 Open `dist/index.html` in a browser, including offline. The build also writes `Embodied_AI_Atlas_v0.3.html` beside the repository for review/sharing. Generated output and local preview state are not committed.
 
+The published/HTTP preview uses client-side history and scroll restoration. Direct `file:` use preserves native file navigation because browsers restrict history changes there; local preference storage may be unavailable, but theme/sidebar toggles still work for the open page.
+
 ## Sources and maintenance
 
 | File | Role |

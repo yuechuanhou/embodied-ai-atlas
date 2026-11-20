@@ -9,7 +9,7 @@ function boot(path='?page=home',options={}){
   const errors=[];
   const virtualConsole=new VirtualConsole();
   virtualConsole.on('jsdomError',error=>errors.push(error.message));
-  const dom=new JSDOM(html,{url:'https://atlas.example/embodied-ai-atlas/'+path,runScripts:'dangerously',virtualConsole,beforeParse(w){
+  const dom=new JSDOM(html,{url:(options.file?'file:///tmp/atlas.html':'https://atlas.example/embodied-ai-atlas/')+path,runScripts:'dangerously',virtualConsole,beforeParse(w){
     let y=0;
     Object.defineProperty(w,'scrollY',{get:()=>y});
     w.scrollTo=(value,second)=>{y=typeof value==='object'?value.top:second;};
@@ -163,4 +163,15 @@ test('light and dark text colors retain 4.5:1 contrast on both reading surfaces'
       assert((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5,text+' on '+surface);
     }
   }
+});
+
+test('offline file links retain native navigation and theme toggles without storage',()=>{
+  const {d,w,click}=boot('?page=home',{file:true});
+  const link=d.querySelector('[data-stage="03"]');let intercepted;
+  d.addEventListener('click',event=>{intercepted=event.defaultPrevented;event.preventDefault();},{once:true});
+  link.dispatchEvent(new w.MouseEvent('click',{bubbles:true,cancelable:true,button:0}));
+  assert.equal(intercepted,false,'File links must bypass restricted History API');
+  assert.equal(link.search,'?view=stage&id=03');
+  click('#theme-button');assert.equal(d.documentElement.getAttribute('data-theme'),'dark');
+  click('#theme-button');assert.equal(d.documentElement.getAttribute('data-theme'),'light');
 });
