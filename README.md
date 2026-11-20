@@ -1,48 +1,39 @@
 # Embodied AI Atlas · 具身智能知识图谱
 
-A versioned, extensible, Markdown-first learning website for Embodied AI / robotics data, model training, evaluations, and industry research.
+**System-centric · Knowledge-driven · Context-aware**
 
-## First release (v0.1.0)
+A Markdown-first, offline-capable personal knowledge atlas for robotics and Embodied AI. The knowledge base grows from real technical questions, not a fixed curriculum.
 
-- 26 Chinese-language content pages across 7 areas
-- Main narrative: sensing → data collection → processing → data recipe → model training → evaluation → deployment feedback
-- Comparison of 8 publicly documented robotics company/model approaches, with original source links and disclosure caveats
-- Robotics foundation concept pages and cross-linked bilingual glossary
-- Local full-text search (press `/`), sidebar navigation, table of contents, light/dark mode, mobile layout
-- **No external runtime libraries, external fonts or remote APIs.** Generated `dist/index.html` can be opened directly, including offline.
+## v0.2 architecture
 
-## Edit and rebuild
+- **System overview:** a six-stage Embodied Intelligence Lifecycle with Execution ↔ Learning and system-wide feedback.
+- **Core loops:** Robot Execution, Robot Learning and Engineering Improvement.
+- **Canonical knowledge:** nine primary domains, one main domain per article, one canonical location per indexed topic.
+- **Contextual discovery:** professional views for Data Solutions, Robot Systems Integration, Robot Intelligence and Engineering Cases.
+- **Context-aware reading:** relevant section highlighted depending on entry point, with the original article kept complete.
+- **No filler:** 30 secondary Lifecycle topics are architecture positions, not required Markdown pages.
 
-Install Python 3.9+ and the lightweight Markdown renderer:
+Read [ARCHITECTURE.md](ARCHITECTURE.md) for the definitive model, relationships and change rules.
 
-```bash
-python -m pip install -r requirements.txt
-python build.py
-```
+## Local use
 
-Open `dist/index.html` in your browser. The builder also writes `../Embodied_AI_Atlas_v0.1.html` for convenient sharing.
+Requires Python 3.9+:
 
-Content is in `content/*.md`. To add a page, create a Markdown file and register it in `content/manifest.json` with `id`, `section`, `title`, `file`, `summary`, `tags`, `related`, and `maturity` (publication maturity, **not** user learning progress). Rebuild.
+    python -m pip install -r requirements.txt
+    python scripts/validate_content.py
+    python build.py
+    python scripts/smoke_test.py
 
-Internal links in Markdown follow the pattern `[VIO](?page=sensors-and-estimation)`. Use plain absolute HTTPS links for external sources.
+Open dist/index.html in any modern browser (also offline). A separate Embodied_AI_Atlas_v0.2.html is written outside the repository for convenient sharing.
 
-Site code:
+Knowledge source: content/*.md. Registry data: content/manifest.json (articles and domains), content/architecture.json (system views and contexts), content/topics.json (canonical section topics, typed relations, contextual focus). Presentation: assets/site.js, site.css and v02.css. Build output dist/ is generated and ignored by Git.
 
-- `assets/site.css` — responsive styling
-- `assets/site.js` — navigation/search/rendering
-- `build.py` — Markdown to single-file HTML build
-- `content/manifest.json` — navigation and knowledge relations
+**Add knowledge gradually:** first check whether a topic already has a canonical location. Expand the existing article/section where possible; otherwise register a new topic or Markdown article with one primary domain. Add view mappings only where the relationship adds meaning.
 
-## Editing philosophy
+Old URLs such as ?page=data-recipe remain valid. New views: ?view=stage&id=04, ?view=loop&id=learning, ?view=domain&id=data, ?view=context&id=data-solutions. A contextual link such as ?page=data-recipe&context=stage%3A06 highlights relevant content without creating a second article.
 
-Keep concepts, research reports, and personal notes in separate articles; build hyperlinks between them. Label model version and source date. Do not merge total data assets with training pool sizes or claim unknown mixture ratios. This is an evolving learning knowledge base, not a fixed syllabus or a course tracker.
+## Deployment
 
-## Rights / sources
+Pushing to main triggers validation, build and GitHub Pages publication through .github/workflows/deploy-pages.yml. Pull requests run validation and smoke checks. See GITHUB_DEPLOY.md for the existing setup.
 
-The summaries were written as original learning notes. External references point to the relevant public technical and corporate sources. Verify company disclosures as models evolve; examples are snapshots as of 2026-11-19.
-
-## GitHub Pages deployment
-
-This package includes `.github/workflows/deploy-pages.yml` for automatic publishing on every push to `main`, plus `scripts/validate_content.py` to check basic content integrity.
-
-See [GITHUB_DEPLOY.md](GITHUB_DEPLOY.md) for one-time setup and a no-code editing workflow. The website is built from Markdown source and deployed directly; `dist/` is generated, not maintained by hand.
+Research claims are snapshots: preserve sources, dates, model versions and unknowns. Company data holdings are not automatically training mixture weights.

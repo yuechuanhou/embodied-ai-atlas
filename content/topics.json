@@ -1,0 +1,233 @@
+{
+  "version": "0.2.0",
+  "description": "Canonical topic locations, typed knowledge relations and contextual reading focus. Article IDs remain stable.",
+  "topics": [
+    {
+      "id": "imu",
+      "title": "Inertial Measurement Unit (IMU)",
+      "article": "sensors-and-estimation",
+      "heading": "Encoder 与 IMU"
+    },
+    {
+      "id": "vio",
+      "title": "Visual-Inertial Odometry (VIO)",
+      "article": "sensors-and-estimation",
+      "heading": "VIO（Visual-Inertial Odometry）"
+    },
+    {
+      "id": "slam",
+      "title": "SLAM",
+      "article": "sensors-and-estimation",
+      "heading": "SLAM 与 VIO"
+    },
+    {
+      "id": "camera-calibration",
+      "title": "Camera Intrinsics & Extrinsics",
+      "article": "sensors-and-estimation",
+      "heading": "相机内参和外参"
+    },
+    {
+      "id": "coordinate-frames",
+      "title": "Coordinate Frames",
+      "article": "geometry-and-frames",
+      "heading": "坐标系和右手定则"
+    },
+    {
+      "id": "urdf",
+      "title": "URDF",
+      "article": "geometry-and-frames",
+      "heading": "URDF = 结构描述"
+    },
+    {
+      "id": "tf",
+      "title": "TF Tree",
+      "article": "geometry-and-frames",
+      "heading": "TF Tree = 当前坐标变换关系"
+    },
+    {
+      "id": "fk",
+      "title": "Forward Kinematics (FK)",
+      "article": "geometry-and-frames",
+      "heading": "FK（正运动学）"
+    },
+    {
+      "id": "ik",
+      "title": "Inverse Kinematics (IK)",
+      "article": "geometry-and-frames",
+      "heading": "IK（逆运动学）"
+    },
+    {
+      "id": "action-representation",
+      "title": "Action Representation",
+      "article": "model-architecture",
+      "heading": "Action Representation"
+    },
+    {
+      "id": "diffusion-policy",
+      "title": "Diffusion Policy",
+      "article": "model-architecture",
+      "heading": "Diffusion Policy"
+    },
+    {
+      "id": "flow-matching",
+      "title": "Flow Matching",
+      "article": "model-architecture",
+      "heading": "Flow Matching"
+    },
+    {
+      "id": "world-model",
+      "title": "World Model",
+      "article": "learning-paradigms",
+      "heading": "World Model"
+    },
+    {
+      "id": "reinforcement-learning",
+      "title": "Reinforcement Learning",
+      "article": "learning-paradigms",
+      "heading": "Reinforcement Learning"
+    },
+    {
+      "id": "data-quality",
+      "title": "Data Quality",
+      "article": "quality-evaluation",
+      "heading": "数据质量的四个层级"
+    }
+  ],
+  "relations": [
+    {
+      "from": "vio",
+      "type": "depends_on",
+      "to": "imu"
+    },
+    {
+      "from": "vio",
+      "type": "depends_on",
+      "to": "camera-calibration"
+    },
+    {
+      "from": "vio",
+      "type": "depends_on",
+      "to": "coordinate-frames"
+    },
+    {
+      "from": "ik",
+      "type": "depends_on",
+      "to": "fk"
+    },
+    {
+      "from": "fk",
+      "type": "depends_on",
+      "to": "coordinate-frames"
+    },
+    {
+      "from": "tf",
+      "type": "depends_on",
+      "to": "coordinate-frames"
+    },
+    {
+      "from": "action-representation",
+      "type": "enables",
+      "to": "training-loop"
+    },
+    {
+      "from": "diffusion-policy",
+      "type": "compares_with",
+      "to": "flow-matching"
+    },
+    {
+      "from": "data-recipe",
+      "type": "enables",
+      "to": "training-loop"
+    },
+    {
+      "from": "data-pipeline",
+      "type": "enables",
+      "to": "data-recipe"
+    },
+    {
+      "from": "data-quality",
+      "type": "part_of",
+      "to": "quality-evaluation"
+    }
+  ],
+  "focus": [
+    {
+      "article": "data-recipe",
+      "view": "stage:04",
+      "heading": "一个可理解的三阶段结构",
+      "reason": "关注数据来源、训练阶段和目标函数之间的关系"
+    },
+    {
+      "article": "data-recipe",
+      "view": "stage:06",
+      "heading": "一个成熟的判断框架",
+      "reason": "关注如何通过对照实验验证数据配方的实际增益"
+    },
+    {
+      "article": "data-recipe",
+      "view": "loop:learning",
+      "heading": "Data Recipe 不只是“训练阶段”",
+      "reason": "关注数据选择怎样改变训练结果与下一轮改进"
+    },
+    {
+      "article": "data-recipe",
+      "view": "context:data-solutions",
+      "heading": "跨公司的公开数字如何读？",
+      "reason": "区分客户数据资产、训练池和实际模型训练配方"
+    },
+    {
+      "article": "sensors-and-estimation",
+      "view": "stage:03",
+      "heading": "VIO（Visual-Inertial Odometry）",
+      "reason": "重点理解感知与状态估计的算法机制"
+    },
+    {
+      "article": "sensors-and-estimation",
+      "view": "stage:02",
+      "heading": "Encoder 与 IMU",
+      "reason": "重点关注物理传感器与机器人状态观测"
+    },
+    {
+      "article": "geometry-and-frames",
+      "view": "stage:03",
+      "heading": "FK（正运动学）",
+      "reason": "重点关注坐标与运动学在动作执行中的作用"
+    },
+    {
+      "article": "geometry-and-frames",
+      "view": "stage:02",
+      "heading": "URDF = 结构描述",
+      "reason": "重点关注机器人结构和运动链建模"
+    },
+    {
+      "article": "geometry-and-frames",
+      "view": "stage:05",
+      "heading": "TF Tree = 当前坐标变换关系",
+      "reason": "重点关注运行时坐标变换和系统接口一致性"
+    },
+    {
+      "article": "quality-evaluation",
+      "view": "stage:06",
+      "heading": "训练损失下降，不等于真实成功率上升",
+      "reason": "重点关注闭环评估和系统级指标"
+    },
+    {
+      "article": "quality-evaluation",
+      "view": "context:data-solutions",
+      "heading": "数据质量的四个层级",
+      "reason": "区分数据完整性、示范质量、多样性和训练收益"
+    },
+    {
+      "article": "model-architecture",
+      "view": "loop:execution",
+      "heading": "Action Chunk 与实时执行",
+      "reason": "重点关注策略输出与实时控制之间的衔接"
+    },
+    {
+      "article": "data-pipeline",
+      "view": "stage:05",
+      "heading": null,
+      "reason": "重点关注同步、Schema 与机器人运行接口的关联"
+    }
+  ]
+}

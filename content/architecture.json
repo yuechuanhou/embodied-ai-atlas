@@ -1,0 +1,633 @@
+{
+  "version": "0.2.0",
+  "tagline": "Understand the system · Explore the mechanisms · Connect the knowledge",
+  "principles": [
+    "One topic, one canonical location",
+    "Lifecycle is a system map, not a waterfall workflow",
+    "Views reference articles; they never duplicate their contents",
+    "Context highlights relevant sections, never hides the full article",
+    "Empty topics are valid; no placeholder articles required"
+  ],
+  "lifecycle": [
+    {
+      "id": "01",
+      "title": "Tasks & Requirements",
+      "question": "机器人需要完成什么任务，满足什么要求？",
+      "topics": [
+        {
+          "id": "01.1",
+          "title": "Use Cases & Task Definition",
+          "articles": []
+        },
+        {
+          "id": "01.2",
+          "title": "Operational Environment",
+          "articles": []
+        },
+        {
+          "id": "01.3",
+          "title": "Capabilities & Functional Requirements",
+          "articles": []
+        },
+        {
+          "id": "01.4",
+          "title": "Constraints & Nonfunctional Requirements",
+          "articles": []
+        },
+        {
+          "id": "01.5",
+          "title": "Acceptance Criteria & Traceability",
+          "articles": []
+        }
+      ],
+      "loops": [
+        "engineering"
+      ],
+      "connections": [
+        {
+          "to": "02",
+          "label": "需求约束机器人本体和系统架构"
+        },
+        {
+          "to": "06",
+          "label": "验收指标通过实际验证得到证据"
+        }
+      ]
+    },
+    {
+      "id": "02",
+      "title": "Robot Embodiment & Architecture",
+      "question": "怎样的物理本体与计算架构支持机器人能力？",
+      "topics": [
+        {
+          "id": "02.1",
+          "title": "Morphology & Mechanisms",
+          "articles": [
+            "robotics-stack"
+          ]
+        },
+        {
+          "id": "02.2",
+          "title": "Actuation & Mechanical Systems",
+          "articles": [
+            "robotics-stack"
+          ]
+        },
+        {
+          "id": "02.3",
+          "title": "Sensors & Hardware Systems",
+          "articles": [
+            "sensors-and-estimation"
+          ]
+        },
+        {
+          "id": "02.4",
+          "title": "Computing & Communication Architecture",
+          "articles": [
+            "robotics-stack",
+            "file-formats"
+          ]
+        },
+        {
+          "id": "02.5",
+          "title": "Robot Description & System Architecture",
+          "articles": [
+            "geometry-and-frames",
+            "robotics-stack"
+          ]
+        }
+      ],
+      "loops": [
+        "engineering",
+        "execution"
+      ],
+      "connections": [
+        {
+          "to": "03",
+          "label": "本体和传感器约束感知、规划与控制"
+        },
+        {
+          "to": "05",
+          "label": "接口与架构设计进入真实集成"
+        }
+      ]
+    },
+    {
+      "id": "03",
+      "title": "Perception & Action",
+      "question": "机器人如何理解环境、形成决策并执行动作？",
+      "topics": [
+        {
+          "id": "03.1",
+          "title": "Perception",
+          "articles": [
+            "sensors-and-estimation"
+          ]
+        },
+        {
+          "id": "03.2",
+          "title": "State Estimation & Localization",
+          "articles": [
+            "sensors-and-estimation",
+            "geometry-and-frames"
+          ]
+        },
+        {
+          "id": "03.3",
+          "title": "Task Planning & Decision-Making",
+          "articles": [
+            "overview"
+          ]
+        },
+        {
+          "id": "03.4",
+          "title": "Motion Planning & Manipulation",
+          "articles": [
+            "geometry-and-frames"
+          ]
+        },
+        {
+          "id": "03.5",
+          "title": "Control & Physical Interaction",
+          "articles": [
+            "robotics-stack",
+            "model-architecture"
+          ]
+        }
+      ],
+      "loops": [
+        "execution"
+      ],
+      "connections": [
+        {
+          "to": "04",
+          "label": "真实执行生成经验，学习策略反过来影响动作"
+        },
+        {
+          "to": "06",
+          "label": "任务结果与执行表现接受闭环评估"
+        }
+      ]
+    },
+    {
+      "id": "04",
+      "title": "Data & Learning",
+      "question": "机器人如何从数据和经验中获得并改进能力？",
+      "topics": [
+        {
+          "id": "04.1",
+          "title": "Data Sources & Collection",
+          "articles": [
+            "data-taxonomy",
+            "data-comparison"
+          ]
+        },
+        {
+          "id": "04.2",
+          "title": "Data Processing & Representation",
+          "articles": [
+            "data-pipeline",
+            "file-formats"
+          ]
+        },
+        {
+          "id": "04.3",
+          "title": "Dataset Design & Data Recipe",
+          "articles": [
+            "data-recipe",
+            "data-comparison"
+          ]
+        },
+        {
+          "id": "04.4",
+          "title": "Model Architecture & Learning",
+          "articles": [
+            "learning-paradigms",
+            "model-architecture"
+          ]
+        },
+        {
+          "id": "04.5",
+          "title": "Training & Optimization",
+          "articles": [
+            "training-loop",
+            "learning-paradigms"
+          ]
+        }
+      ],
+      "loops": [
+        "learning"
+      ],
+      "connections": [
+        {
+          "to": "03",
+          "label": "训练得到的策略进入执行系统"
+        },
+        {
+          "to": "06",
+          "label": "实际任务结果决定下一轮数据与训练"
+        }
+      ]
+    },
+    {
+      "id": "05",
+      "title": "System Integration & Operations",
+      "question": "如何使软件、硬件与学习模型在真实系统中协同运行？",
+      "topics": [
+        {
+          "id": "05.1",
+          "title": "Software & Middleware Integration",
+          "articles": [
+            "file-formats",
+            "robotics-stack"
+          ]
+        },
+        {
+          "id": "05.2",
+          "title": "Runtime & Real-Time Systems",
+          "articles": [
+            "robotics-stack",
+            "model-architecture"
+          ]
+        },
+        {
+          "id": "05.3",
+          "title": "Synchronization & Interfaces",
+          "articles": [
+            "data-pipeline",
+            "geometry-and-frames"
+          ]
+        },
+        {
+          "id": "05.4",
+          "title": "Bring-up, Configuration & Deployment",
+          "articles": [
+            "robotics-stack"
+          ]
+        },
+        {
+          "id": "05.5",
+          "title": "Observability & Troubleshooting",
+          "articles": [
+            "quality-evaluation"
+          ]
+        }
+      ],
+      "loops": [
+        "engineering",
+        "execution"
+      ],
+      "connections": [
+        {
+          "to": "02",
+          "label": "现场问题可以反向修订硬件和架构"
+        },
+        {
+          "to": "06",
+          "label": "联调结果进入端到端验证与运行监控"
+        }
+      ]
+    },
+    {
+      "id": "06",
+      "title": "Evaluation, Deployment & Feedback",
+      "question": "如何证明系统满足需求并决定下一次改进？",
+      "topics": [
+        {
+          "id": "06.1",
+          "title": "Verification & Validation",
+          "articles": [
+            "quality-evaluation"
+          ]
+        },
+        {
+          "id": "06.2",
+          "title": "Robot & Model Performance Evaluation",
+          "articles": [
+            "quality-evaluation"
+          ]
+        },
+        {
+          "id": "06.3",
+          "title": "Safety, Reliability & Performance",
+          "articles": [
+            "quality-evaluation"
+          ]
+        },
+        {
+          "id": "06.4",
+          "title": "Real-World Deployment & Monitoring",
+          "articles": [
+            "data-flywheel"
+          ]
+        },
+        {
+          "id": "06.5",
+          "title": "Feedback & Continuous Improvement",
+          "articles": [
+            "data-flywheel",
+            "data-recipe"
+          ]
+        }
+      ],
+      "loops": [
+        "execution",
+        "learning",
+        "engineering"
+      ],
+      "connections": [
+        {
+          "to": "01",
+          "label": "反馈更新需求与验收条件"
+        },
+        {
+          "to": "02",
+          "label": "反馈推动硬件和系统架构修改"
+        },
+        {
+          "to": "03",
+          "label": "反馈推动感知、控制和任务执行改进"
+        },
+        {
+          "to": "04",
+          "label": "反馈推动数据与模型迭代"
+        },
+        {
+          "to": "05",
+          "label": "反馈推动接口和运行系统改进"
+        }
+      ]
+    }
+  ],
+  "loops": [
+    {
+      "id": "execution",
+      "title": "Robot Execution Loop",
+      "question": "机器人如何实时感知、规划、执行并反馈？",
+      "feedback": "环境变化与执行结果更新下一时刻的状态估计和动作",
+      "steps": [
+        {
+          "id": "sense",
+          "title": "Sense",
+          "detail": "从传感器获得环境与机器人状态观测",
+          "articles": [
+            "sensors-and-estimation",
+            "robotics-stack"
+          ]
+        },
+        {
+          "id": "estimate",
+          "title": "Estimate",
+          "detail": "建立坐标、运动与环境状态估计",
+          "articles": [
+            "sensors-and-estimation",
+            "geometry-and-frames"
+          ]
+        },
+        {
+          "id": "decide",
+          "title": "Decide & Plan",
+          "detail": "选择任务策略与运动目标",
+          "articles": [
+            "overview",
+            "model-architecture",
+            "geometry-and-frames"
+          ]
+        },
+        {
+          "id": "act",
+          "title": "Control & Act",
+          "detail": "将目标动作转换成物理执行",
+          "articles": [
+            "robotics-stack",
+            "geometry-and-frames"
+          ]
+        },
+        {
+          "id": "observe",
+          "title": "Observe & Recover",
+          "detail": "比较结果、恢复失败并进入下一轮",
+          "articles": [
+            "quality-evaluation",
+            "data-flywheel"
+          ]
+        }
+      ],
+      "stages": [
+        "02",
+        "03",
+        "05",
+        "06"
+      ],
+      "interactions": [
+        {
+          "to": "learning",
+          "label": "执行产生日志、轨迹与训练经验"
+        },
+        {
+          "to": "engineering",
+          "label": "运行异常推动接口和系统设计改进"
+        }
+      ]
+    },
+    {
+      "id": "learning",
+      "title": "Robot Learning Loop",
+      "question": "怎样利用数据与执行经验持续提高机器人能力？",
+      "feedback": "任务结果和模型评估指导下一轮数据选择、训练与模型更新",
+      "steps": [
+        {
+          "id": "collect",
+          "title": "Collect",
+          "detail": "采集遥操、视频、仿真和自主 rollout",
+          "articles": [
+            "data-taxonomy",
+            "data-comparison"
+          ]
+        },
+        {
+          "id": "process",
+          "title": "Process & Curate",
+          "detail": "同步、标注、筛选、组合训练数据",
+          "articles": [
+            "data-pipeline",
+            "data-recipe"
+          ]
+        },
+        {
+          "id": "train",
+          "title": "Train",
+          "detail": "选择模型结构、优化目标与训练策略",
+          "articles": [
+            "training-loop",
+            "learning-paradigms",
+            "model-architecture"
+          ]
+        },
+        {
+          "id": "evaluate",
+          "title": "Evaluate",
+          "detail": "验证泛化、稳定性、模型能力和数据收益",
+          "articles": [
+            "quality-evaluation"
+          ]
+        },
+        {
+          "id": "deploy",
+          "title": "Deploy & Learn",
+          "detail": "部署策略、记录失败和生成下一轮经验",
+          "articles": [
+            "data-flywheel"
+          ]
+        }
+      ],
+      "stages": [
+        "03",
+        "04",
+        "05",
+        "06"
+      ],
+      "interactions": [
+        {
+          "to": "execution",
+          "label": "训练产生可执行策略；执行提供新经验"
+        },
+        {
+          "to": "engineering",
+          "label": "系统工程保障采集、训练和部署设施"
+        }
+      ]
+    },
+    {
+      "id": "engineering",
+      "title": "Engineering Improvement Loop",
+      "question": "怎样把任务需求转化为可靠且可验证的机器人系统？",
+      "feedback": "验证与实际运行中的证据推动需求、架构、接口和实现迭代",
+      "steps": [
+        {
+          "id": "specify",
+          "title": "Specify",
+          "detail": "将任务与环境转化为技术要求和验收条件",
+          "articles": [
+            "overview"
+          ]
+        },
+        {
+          "id": "architect",
+          "title": "Architect & Design",
+          "detail": "定义物理本体、系统划分与接口契约",
+          "articles": [
+            "robotics-stack",
+            "geometry-and-frames"
+          ]
+        },
+        {
+          "id": "integrate",
+          "title": "Integrate & Bring Up",
+          "detail": "联通驱动、软件、时钟、数据与模型",
+          "articles": [
+            "robotics-stack",
+            "file-formats",
+            "data-pipeline"
+          ]
+        },
+        {
+          "id": "verify",
+          "title": "Verify & Validate",
+          "detail": "验证组件、系统性能与真实任务需求",
+          "articles": [
+            "quality-evaluation"
+          ]
+        },
+        {
+          "id": "improve",
+          "title": "Diagnose & Improve",
+          "detail": "用现场证据修正设计并回归验证",
+          "articles": [
+            "data-flywheel",
+            "quality-evaluation"
+          ]
+        }
+      ],
+      "stages": [
+        "01",
+        "02",
+        "03",
+        "04",
+        "05",
+        "06"
+      ],
+      "interactions": [
+        {
+          "to": "execution",
+          "label": "提供可靠物理平台、控制和运行接口"
+        },
+        {
+          "to": "learning",
+          "label": "提供可追溯的数据和模型集成环境"
+        }
+      ]
+    }
+  ],
+  "contexts": [
+    {
+      "id": "data-solutions",
+      "title": "Data & AI Solutions",
+      "subtitle": "训练数据、客户技术需求与数据价值",
+      "description": "从数据规格、采集、标注、数据质量到训练价值的跨领域入口。",
+      "articles": [
+        "data-taxonomy",
+        "data-comparison",
+        "data-pipeline",
+        "data-recipe",
+        "quality-evaluation",
+        "training-loop",
+        "learning-paradigms"
+      ]
+    },
+    {
+      "id": "robot-integration",
+      "title": "Robot Systems & Integration",
+      "subtitle": "机器人本体、通信、运行时与验证",
+      "description": "从硬件、传感器和接口到软硬件联调、运行稳定性与故障定位。",
+      "articles": [
+        "robotics-stack",
+        "geometry-and-frames",
+        "sensors-and-estimation",
+        "file-formats",
+        "data-pipeline",
+        "quality-evaluation",
+        "model-architecture"
+      ]
+    },
+    {
+      "id": "robot-intelligence",
+      "title": "Robot Intelligence & Research",
+      "subtitle": "感知、规划、控制与学习机制",
+      "description": "围绕算法、模型和真实机器人行为建立技术关联。",
+      "articles": [
+        "geometry-and-frames",
+        "sensors-and-estimation",
+        "learning-paradigms",
+        "model-architecture",
+        "training-loop",
+        "data-flywheel",
+        "company-pi"
+      ]
+    },
+    {
+      "id": "engineering-cases",
+      "title": "Engineering Cases",
+      "subtitle": "跨系统故障、验证与持续改进",
+      "description": "通过系统工程和实际故障链路连接不同学科。",
+      "articles": [
+        "robotics-stack",
+        "geometry-and-frames",
+        "data-pipeline",
+        "quality-evaluation",
+        "data-flywheel",
+        "file-formats"
+      ]
+    }
+  ]
+}
