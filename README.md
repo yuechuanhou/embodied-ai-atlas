@@ -33,6 +33,8 @@ Open `dist/index.html` in a browser, including offline. The build also writes `E
 
 The published/HTTP preview uses client-side history and scroll restoration. Direct `file:` use preserves native file navigation because browsers restrict history changes there; local preference storage may be unavailable, but theme/sidebar toggles still work for the open page.
 
+Bookmark and tab icons reuse the site's Tiffany orbit mark. The build publishes SVG, PNG, multi-size ICO and Apple touch icons with relative URLs so the Atlas keeps its own identity under the GitHub Pages subpath. The standalone HTML embeds those icons instead. `assets/icons/favicon.svg` is the vector source; update its raster companions when changing the mark.
+
 ## Sources and maintenance
 
 | File | Role |
@@ -43,6 +45,7 @@ The published/HTTP preview uses client-side history and scroll restoration. Dire
 | `content/topics.json` | Section Topics, typed relations and contextual Focus |
 | `content/anchors.json` | Persistent IDs for registered headings and historical aliases |
 | `assets/site.js`, `site.css`, `v02.css`, `lifecycle.css` | Routing, interactions and presentation; the minimal homepage map has a dedicated stylesheet |
+| `assets/icons/` | Atlas favicon and Apple touch icon assets |
 | `scripts/legacy_articles.json` | Historical article IDs protected while allowing growth |
 
 Before adding knowledge, search for an existing Topic. Extend its canonical article/section or register a new Topic in the appropriate Domain. Add only useful typed relations and view mappings. When renaming a registered heading, update the lookup in metadata while preserving its anchor ID.

@@ -1,5 +1,7 @@
 """Build Embodied AI Atlas as one offline HTML document."""
 from __future__ import annotations
+import base64
+import hashlib
 import html
 import json
 import pathlib
@@ -125,17 +127,38 @@ css = (ROOT / "assets" / "site.css").read_text(encoding="utf-8")
 css += "\n" + (ROOT / "assets" / "v02.css").read_text(encoding="utf-8")
 css += "\n" + (ROOT / "assets" / "lifecycle.css").read_text(encoding="utf-8")
 js = (ROOT / "assets" / "site.js").read_text(encoding="utf-8")
+icons = [
+    ("icon", "image/x-icon", "16x16 32x32 48x48", "favicon.ico"),
+    ("icon", "image/png", "32x32", "favicon-32.png"),
+    ("icon", "image/svg+xml", "any", "favicon.svg"),
+    ("apple-touch-icon", "image/png", "180x180", "apple-touch-icon.png"),
+]
+
+def icon_links(inline=False):
+    links = []
+    for rel, mime, sizes, name in icons:
+        content = (ROOT / "assets" / "icons" / name).read_bytes()
+        href = (f"data:{mime};base64,{base64.b64encode(content).decode()}" if inline
+                else f"{name}?v={hashlib.sha256(content).hexdigest()[:10]}")
+        links.append(f'<link rel="{rel}" type="{mime}" sizes="{sizes}" href="{href}"/>')
+    return "\n".join(links)
+
 page = f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <meta name="color-scheme" content="light dark"/>
 <meta name="description" content="Embodied AI Atlas: system lifecycle, robot execution, learning and engineering."/>
 <title>Embodied AI Atlas · 具身智能知识图谱</title>
+{icon_links()}
 <style>{css}</style></head><body><div id="app"></div>
 <script id="atlas-data" type="application/json">{data}</script><script>{js}</script>
 </body></html>'''
 dist = ROOT / "dist"
 dist.mkdir(exist_ok=True)
 (dist / "index.html").write_text(page, encoding="utf-8")
+for _, _, _, name in icons:
+    shutil.copyfile(ROOT / "assets" / "icons" / name, dist / name)
 release = '.'.join(manifest['site']['version'].split('.')[:2])
-shutil.copyfile(dist / "index.html", ROOT.parent / f"Embodied_AI_Atlas_v{release}.html")
+# Keep the shared single-file export self-contained, including its icon metadata.
+offline = page.replace(icon_links(), icon_links(inline=True), 1)
+(ROOT.parent / f"Embodied_AI_Atlas_v{release}.html").write_text(offline, encoding="utf-8")
 print(f"Built {len(pages)} articles and {len(topics)} topics -> {dist / 'index.html'} ({len(page.encode('utf-8')) / 1024:.0f} KiB)")
