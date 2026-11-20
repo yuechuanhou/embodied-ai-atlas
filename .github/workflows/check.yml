@@ -2,7 +2,6 @@ name: Check Atlas source and build
 
 on:
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -27,3 +26,5 @@ jobs:
         run: python scripts/smoke_test.py
       - name: Test client-side view rendering
         run: node scripts/test_runtime.js
+      - name: Test content growth and heading migrations
+        run: python scripts/test_content.py

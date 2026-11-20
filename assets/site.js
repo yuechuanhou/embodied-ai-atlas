@@ -224,7 +224,7 @@
     enables:['Enables','Enabled by'],
     compares_with:['Compare with','Compare with'],
     illustrated_by:['Illustrated by','Illustrates'],
-    related:['Related','Referenced by']
+    related:['Related','Related']
   };
   function connectionsForArticle(articleId) {
     const ids=new Set(DATA.topics.filter(t=>t.article===articleId).map(t=>t.id));
@@ -232,13 +232,13 @@
     for(const r of DATA.relations) {
       const source=topicById[r.from], target=topicById[r.to];
       if(!source||!target) continue;
-      if(ids.has(r.from) && target.article!==articleId)
-        links.push({topic:target,label:relationLabels[r.type]?.[0] || r.type});
-      else if(ids.has(r.to) && source.article!==articleId)
-        links.push({topic:source,label:relationLabels[r.type]?.[1] || r.type});
+      if(ids.has(r.from))
+        links.push({source,topic:target,label:relationLabels[r.type]?.[0] || r.type});
+      else if(ids.has(r.to))
+        links.push({source:target,topic:source,label:relationLabels[r.type]?.[1] || r.type});
     }
     const seen=new Set();
-    return links.filter(x=>{const key=x.topic.id+'::'+x.label;if(seen.has(key))return false;seen.add(key);return true;}).slice(0,24);
+    return links.filter(x=>{const key=x.source.id+'::'+x.topic.id+'::'+x.label;if(seen.has(key))return false;seen.add(key);return true;});
   }
   function focusForArticle(articleId,ctx) {
     if(!articleInContext(articleId,ctx))return null;
@@ -264,8 +264,8 @@
       (t.level===3?' sub':'')+'" href="#'+eattr(t.id)+'" data-toc="'+eattr(t.id)+'">'+esc(t.title)+'</a>').join('')+
       '<div class="toc-divider"></div><div class="toc-small">Same canonical article across all navigation views.</div></aside>';
     const technical=conn.length?'<section class="related-block"><div class="related-title">KNOWLEDGE RELATIONS / BACKLINKS</div><div class="relation-grid">'+
-      conn.map(x=>'<a class="relation-chip" href="'+eattr(linkArticle(x.topic.article,'',x.topic.anchor))+'"><small>'+esc(x.label)+
-      '</small><strong>'+esc(x.topic.title)+'</strong></a>').join('')+'</div></section>':'';
+      conn.map(x=>'<div class="relation-chip"><a href="'+eattr(linkArticle(x.source.article,'',x.source.anchor))+'">'+esc(x.source.title)+
+      '</a><small>'+esc(x.label)+'</small><a href="'+eattr(linkArticle(x.topic.article,'',x.topic.anchor))+'"><strong>'+esc(x.topic.title)+'</strong></a></div>').join('')+'</div></section>':'';
     const system=matches.length?'<section class="related-block"><div class="related-title">SYSTEM CONNECTIONS</div><div class="related-links">'+
       matches.map(x=>'<a class="related-link" href="'+eattr(x.url)+'">'+esc(x.name)+' ↗</a>').join('')+'</div></section>':'';
     const pager='<nav class="article-pager"><div>'+(prev?'<a class="pager-card" href="'+eattr(linkArticle(prev.id))+'"><small>← Previous</small><strong>'+esc(prev.title)+'</strong></a>':'')+

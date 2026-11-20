@@ -34,6 +34,8 @@ jobs:
         run: python scripts/smoke_test.py
       - name: Test client view rendering
         run: node scripts/test_runtime.js
+      - name: Test content growth and heading migrations
+        run: python scripts/test_content.py
       - name: Prepare GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload website
