@@ -28,6 +28,9 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            agent/runtime/package-lock.json
       - run: npm ci --ignore-scripts
       - name: Validate knowledge base
         run: python scripts/validate_content.py
@@ -35,6 +38,8 @@ jobs:
         run: node --check assets/site.js
       - name: Build static site
         run: python build.py
+        env:
+          ATLAS_AGENT_ORIGIN: ${{ vars.ATLAS_AGENT_ORIGIN }}
       - name: Smoke test generated site
         run: python scripts/smoke_test.py
       - name: Test client view rendering
@@ -54,7 +59,14 @@ jobs:
           node --check assets/agent-demo-engine.js
           node --check assets/agent-demo.js
           npm run test:agent
-      - name: Prepare GitHub Pages
+      # The private Worker is only built/tested here. Pages still uploads dist/.
+      - name: Install private runtime test dependencies
+        run: npm ci --ignore-scripts --prefix agent/runtime
+      - name: Build private Worker without deployment
+        run: npm run build --prefix agent/runtime
+      - name: Test Owner authentication, D1, synchronization and model boundaries
+        run: npm test --prefix agent/runtime
+      - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload website
         uses: actions/upload-pages-artifact@v3

@@ -50,6 +50,7 @@ After editing the mark, regenerate raster companions with `python scripts/genera
 | `content/anchors.json` | Persistent IDs for registered headings and historical aliases |
 | `assets/site.js`, `site.css`, `v02.css`, `lifecycle.css` | Routing, interactions and presentation; the minimal homepage map has a dedicated stylesheet |
 | `assets/icons/` | Atlas favicon and Apple touch icon assets |
+| `scripts/knowledge_export.py` | Derived content-addressed retrieval snapshot; full Markdown and every rendered heading |
 | `scripts/generate_icons.py` | Regenerates transparent raster icons from the canonical SVG; only needed when changing the mark |
 | `scripts/legacy_articles.json` | Historical article IDs protected while allowing growth |
 
@@ -80,3 +81,21 @@ expanded change-review workbench. Build it separately with `python build.py --ag
 then run `npm run test:agent`. Output is `.preview/agent-demo/`, outside the production
 Pages artifact. Retrieval uses real articles and headings; new knowledge and approvals
 use clearly labeled simulations. Chats stay in memory and disappear on reload.
+
+The [private runtime](agent/runtime/README.md) implements Worker-side Owner JWT
+checks, D1 sessions/candidates, verified Pages snapshot synchronization and optional
+OpenAI/Claude adapters. Its keys, model choice, limits, account and real login are
+not configured or deployed. [Deployment preparation](agent/runtime/DEPLOYMENT.md)
+keeps these steps explicit. Private runtime builds/tests use Node 22.12+:
+
+```sh
+npm ci --ignore-scripts --prefix agent/runtime
+npm run build --prefix agent/runtime
+npm test --prefix agent/runtime
+```
+
+Normal builds also emit `knowledge-manifest.json` and a hashed knowledge index into
+`dist/`. Set repository variable `ATLAS_AGENT_ORIGIN` only after a private destination
+is verified; without it no placeholder private link is shown. The handoff carries only
+canonical reading IDs in a fragment. No private backend or database deploys through
+the existing Pages workflow.

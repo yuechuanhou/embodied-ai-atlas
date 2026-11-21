@@ -5,11 +5,13 @@ import argparse
 import hashlib
 import html
 import json
+import os
 import pathlib
 import re
 import unicodedata
 import xml.etree.ElementTree as ET
 import mistune
+from urllib.parse import urlsplit
 
 ROOT = pathlib.Path(__file__).resolve().parent
 arguments = argparse.ArgumentParser(description=__doc__)
@@ -126,6 +128,12 @@ for article in pages:
 
 payload = {"site": manifest["site"], "sections": manifest["sections"], "pages": pages,
            "architecture": architecture, "topics": topics, "relations": relations, "focus": focus}
+private_agent_origin = os.environ.get('ATLAS_AGENT_ORIGIN', '')
+if private_agent_origin:
+    origin = urlsplit(private_agent_origin)
+    if origin.scheme != 'https' or not origin.hostname or origin.username or origin.password or origin.path or origin.query or origin.fragment:
+        raise ValueError('ATLAS_AGENT_ORIGIN must be an HTTPS origin without a path, query, credentials or fragment')
+    payload['private_agent_origin'] = private_agent_origin
 if options.agent_demo:
     import subprocess
     from agent.proposals import contract_digest
@@ -193,6 +201,9 @@ page = f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 </body></html>'''
 dist = ROOT / ('.preview/agent-demo' if options.agent_demo else 'dist')
 dist.mkdir(parents=True, exist_ok=True)
+if not options.agent_demo:
+    from scripts.knowledge_export import export_knowledge
+    export_knowledge(ROOT, dist, payload)
 (dist / "index.html").write_text(page, encoding="utf-8")
 for name, content in icon_assets.items():
     (dist / name).write_bytes(content)

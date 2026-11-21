@@ -1,5 +1,6 @@
 """Regression checks for content growth, invalid metadata and heading migrations."""
 import json
+import hashlib
 import pathlib
 import re
 import shutil
@@ -9,6 +10,8 @@ import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from agent.revisions import copy_contract_files
 
 
 class ContentContracts(unittest.TestCase):
@@ -19,6 +22,7 @@ class ContentContracts(unittest.TestCase):
         for folder in ("content", "assets", "scripts"):
             shutil.copytree(ROOT / folder, self.root / folder, ignore=shutil.ignore_patterns("__pycache__"))
         shutil.copy(ROOT / "build.py", self.root)
+        copy_contract_files(ROOT, self.root)
 
     def tearDown(self):
         self.temp.cleanup()
@@ -60,6 +64,20 @@ class ContentContracts(unittest.TestCase):
         self.assertEqual(topic["anchor"], "vio-visual-inertial-odometry")
         html = next(p["html"] for p in payload["pages"] if p["id"] == topic["article"])
         self.assertIn('id="visual-inertial-odometry-overview"', html)
+
+    def test_retrieval_snapshot_contains_exact_markdown_and_unregistered_headings(self):
+        article = self.root / 'content/sensors-and-estimation.md'
+        article.write_text(article.read_text() + '\n#### A deeper unregistered heading\n\nSnapshot fixture body.\n')
+        self.run_script('build.py')
+        manifest = self.read('dist/knowledge-manifest.json')
+        snapshot_path = self.root / 'dist' / manifest['index_path']
+        self.assertEqual(hashlib.sha256(snapshot_path.read_bytes()).hexdigest(), manifest['index_sha256'])
+        snapshot = json.loads(snapshot_path.read_bytes())
+        page = next(p for p in snapshot['articles'] if p['id'] == 'sensors-and-estimation')
+        self.assertEqual(page['markdown'], article.read_text())
+        self.assertTrue(any(s['level'] == 4 and s['text'] == 'Snapshot fixture body.' for s in page['sections']))
+        self.assertNotIn('messages', snapshot)
+        self.assertNotIn('source_files', snapshot)
 
     def test_duplicate_relation_is_rejected(self):
         registry = self.read("content/topics.json")

@@ -15,6 +15,7 @@ import tempfile
 from urllib.parse import urlsplit
 
 from agent.proposals import contract_digest, validate_proposal
+from agent.revisions import copy_contract_files
 
 
 def require(condition, message):
@@ -138,6 +139,7 @@ def validate_change_set(proposal, *, root, current_head):
         for folder in ('content', 'assets', 'scripts'):
             shutil.copytree(root / folder, target / folder, ignore=shutil.ignore_patterns('__pycache__'))
         shutil.copy(root / 'build.py', target)
+        copy_contract_files(root, target)
         for name, item in changes.items():
             (target / name).write_text(item['after_utf8'], encoding='utf-8')
         for script in ('scripts/validate_content.py', 'build.py'):
