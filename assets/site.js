@@ -108,7 +108,7 @@
     ];
     return '<aside class="sidebar" id="sidebar" aria-label="Knowledge navigation">' +
       '<button class="icon-btn sidebar-close" data-nav-toggle aria-label="Close navigation">×</button>' +
-      '<a class="brand" href="?page=home"><span class="brand-glyph"><span class="brand-dot"></span></span><span><span class="brand-title">Embodied AI Atlas</span><span class="brand-sub">SYSTEM · LEARNING · ENGINEERING</span></span></a>' +
+      '<a class="brand" href="?page=home"><svg class="brand-glyph" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><use href="#atlas-brand-mark"></use></svg><span><span class="brand-title">Embodied AI Atlas</span><span class="brand-sub">SYSTEM · LEARNING · ENGINEERING</span></span></a>' +
       '<a class="nav-home'+(r.type==='home'?' active':'')+'" href="?page=home"'+(r.type==='home'?' aria-current="page"':'')+'>System Map / Home</a><div class="nav-divider"></div>' +
       '<div class="v02-nav">' + grouped.map(([name,links,opened]) =>
         '<details class="nav-group" data-group="'+eattr(name)+'"' + ((groupState.get(name) ?? opened) ? ' open' : '') + '><summary>' + esc(name) + '</summary>' +

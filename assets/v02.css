@@ -10,9 +10,6 @@
 .icon-btn{min-width:40px;height:40px}
 .search-trigger{font-size:14px;height:40px}
 .brand{padding-top:45px}
-.brand-glyph{background:var(--accent-soft);border-color:var(--tiffany)}
-.brand-glyph::before,.brand-glyph::after{border-color:var(--accent)}
-.brand-dot{background:var(--accent)}
 .brand-sub{font-size:10px;letter-spacing:.2px}
 .sidebar-close{position:absolute;right:9px;top:7px;width:30px;height:30px;min-width:30px}
 .sidebar-foot{font-size:12px}
