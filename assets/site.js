@@ -135,7 +135,7 @@
       '<nav class="breadcrumbs" aria-label="Breadcrumb"><a href="?page=home">Atlas</a><span>/</span>'+
       (domain?'<a class="breadcrumb-domain" href="'+eattr(linkView('domain',domain.id))+'">'+esc(domain.name)+'</a><span>/</span>':'')+
       '<strong aria-current="page">' + esc(title) + '</strong></nav></div>' +
-      '<div class="top-actions"><button class="search-trigger" id="open-search" aria-label="Search knowledge">' + glyph.search +
+      '<div class="top-actions">'+(DATA.private_agent_origin?'<a id="open-private-agent" class="private-agent-link" href="'+eattr(DATA.private_agent_origin)+'" target="_blank" rel="noopener noreferrer" aria-label="打开私人 Agent 工作台"><svg class="brand-glyph" viewBox="0 0 64 64" aria-hidden="true"><use href="#atlas-brand-mark"></use></svg><span>Atlas Agent</span></a>':'')+'<button class="search-trigger" id="open-search" aria-label="Search knowledge">' + glyph.search +
       '<span>Search knowledge</span><kbd>/</kbd></button><button class="icon-btn" id="theme-button" aria-label="Toggle theme">' +
       glyph.theme + '</button></div></header>';
   }
@@ -482,6 +482,18 @@
     if(event.target.matches?.('.nav-group'))groupState.set(event.target.dataset.group,event.target.open);
   },true);
   app.addEventListener('click',event=>{
+    const privateLink=event.target.closest('#open-private-agent');
+    if(privateLink){
+      const current=route(),context={};
+      if(current.type==='article'){
+        context.article_id=current.id;
+        let anchor='';try{anchor=decodeURIComponent(location.hash.slice(1));}catch(_){}
+        const heading=document.getElementById(anchor)?.closest('h1,h2,h3,h4,h5,h6');
+        if(heading){context.anchor=heading.id;const topic=DATA.topics.find(t=>t.article===current.id&&t.anchor===heading.id);if(topic)context.topic_id=topic.id;}
+        if(current.context)context.view=current.context;
+      }else if(current.type!=='home')context.view=current.type+':'+current.id;
+      privateLink.href=DATA.private_agent_origin+'/#'+encodeURIComponent(JSON.stringify(context));return;
+    }
     if(event.target.closest('#open-search')){openSearch();return;}
     if(event.target.closest('#theme-button')){setTheme(activeTheme==='light'?'dark':'light');return;}
     if(event.target.closest('[data-nav-toggle]')){

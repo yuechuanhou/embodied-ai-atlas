@@ -9,7 +9,8 @@ function boot(path='?page=home',options={}){
   const errors=[];
   const virtualConsole=new VirtualConsole();
   virtualConsole.on('jsdomError',error=>errors.push(error.message));
-  const dom=new JSDOM(html,{url:(options.file?'file:///tmp/atlas.html':'https://atlas.example/embodied-ai-atlas/')+path,runScripts:'dangerously',virtualConsole,beforeParse(w){
+  const source=options.agentOrigin?html.replace(/(<script id="atlas-data" type="application\/json">)([\s\S]*?)(<\/script>)/,(_,open,payload,close)=>open+JSON.stringify({...JSON.parse(payload),private_agent_origin:options.agentOrigin})+close):html;
+  const dom=new JSDOM(source,{url:(options.file?'file:///tmp/atlas.html':'https://atlas.example/embodied-ai-atlas/')+path,runScripts:'dangerously',virtualConsole,beforeParse(w){
     let y=0;
     Object.defineProperty(w,'scrollY',{get:()=>y});
     w.scrollTo=(value,second)=>{y=typeof value==='object'?value.top:second;};
@@ -25,6 +26,18 @@ function boot(path='?page=home',options={}){
   const search=value=>{click('#open-search');const input=d.getElementById('search-input');input.value=value;input.dispatchEvent(new w.Event('input',{bubbles:true}));return input;};
   return {dom,w,d,click,key,search};
 }
+
+test('private workbench handoff carries only canonical reading IDs in a fragment',()=>{
+  const configured=JSON.parse(html.match(/<script id="atlas-data" type="application\/json">([\s\S]*?)<\/script>/)[1]).private_agent_origin;
+  assert.equal(!!boot().d.getElementById('open-private-agent'),!!configured,'A workbench link requires explicit configuration');
+  const {d,w,dom}=boot('?page=sensors-and-estimation&context=stage%3A03#vio-visual-inertial-odometry',{agentOrigin:'https://agent.example.test'});
+  const link=d.getElementById('open-private-agent');
+  link.addEventListener('click',event=>event.preventDefault());link.click();
+  const url=new URL(link.href),context=JSON.parse(decodeURIComponent(url.hash.slice(1)));
+  assert.equal(url.origin,'https://agent.example.test');assert.equal(url.search,'');
+  assert.deepEqual(context,{article_id:'sensors-and-estimation',anchor:'vio-visual-inertial-odometry',topic_id:'vio',view:'stage:03'});
+  assert.equal(w.location.hostname,'atlas.example');assert.equal(link.rel,'noopener noreferrer');dom.window.close();
+});
 
 test('desktop sidebar hides, releases its column, persists and reopens',()=>{
   assert(boot().d.getElementById('sidebar').hidden,'First visit starts with navigation tucked away');

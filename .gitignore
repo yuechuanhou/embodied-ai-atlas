@@ -9,3 +9,7 @@ __pycache__/
 /node_modules/
 /.preview/
 /.openai/
+/agent/runtime/node_modules/
+/agent/runtime/.wrangler/
+/agent/runtime/wrangler.local.jsonc
+/agent/runtime/.dev.vars*

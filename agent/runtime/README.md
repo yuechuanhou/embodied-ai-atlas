@@ -1,0 +1,74 @@
+# Atlas private runtime — implementation v0.1
+
+状态：可部署代码、打包和本地 Workers/D1 集成验证已完成；**尚未配置或部署真实 Cloudflare 资源，也未调用真实付费模型**。依赖上一轮架构与交互工作。此目录与公开 Pages 阅读网站分离，不属于 Personal OS 主应用。
+
+## 已实现的边界
+
+- Worker 对工作台和所有 API 校验 Access JWT 的签名、RS256、固定 issuer、audience、有效期及唯一 Owner 邮箱。邮箱在私有配置中；不接受客户端传入 Owner，不提供开发鉴权绕过。
+- 工作台与 API 同源。API 拒绝跨站来源；写操作还要求准确 Origin、JSON 和自定义请求头。所有响应禁止公共缓存；工作台使用 CSP、纯文本渲染和独立登录。没有公开静态资源路由绕过 Worker 校验。
+- D1 保存会话、消息、引用版本、私人候选、来源链、请求状态与用量。模型输出不能创建批准、执行工具或取得部署凭据。
+- 相同请求 ID 和输入重发返回已保存结果；不重复调用模型。并发会话锁、带约束的事务提交和调用前用量预留，防止旧请求覆盖新状态。超时/未知调用保留预留额度，不自动重放。会话读取时将失去有效租约的处理中请求标为结果未知，允许明确发起新的尝试。
+- 新知识自动成为私人候选，状态为待查证。模型不得自称已完成外部检索；本阶段没有网页研究工具或真实发布接口。
+- 真实模型需要显式配置 provider、model、密钥和每日调用/token 上限。未配置时只检索真实站内内容；不伪造模型讲解。
+
+## 来源与及时同步
+
+正常站点构建现在同时生成：
+
+- `knowledge-manifest.json`：构建提交、契约摘要、内容地址及数量。
+- `knowledge-index.<SHA-256>.json`：完整 Markdown、全部渲染章节（包括未注册 Topic 的深层标题）、Topic/别名、导航与关系。它是派生数据，不能独立编辑。
+
+同步固定读取 Atlas 的公开域名和唯一仓库，验证摘要以及对应 main 提交成功完成 Pages 工作流的 **deploy job**。仓库提交、实际线上版本、索引版本分别记录。新快照完整验证后事务切换；失败保留旧索引、明确标记滞后，并暂停模型调用，只允许带版本说明的既有内容检索。
+
+当前实现使用 **每五分钟 Cron + 新提问/检索前核对 + 手动同步**，检查结果缓存最多一分钟；手动同步立即核对。所有来源的提交都纳入，不限于 Agent 提交。没有宣称零延迟。
+
+这是对原先“部署事件通知 + 兜底轮询”的首期收敛：先避免增加公开 webhook 和额外服务凭据，牺牲后台事件即时性，保留使用时核对。部署事件通知在真实环境稳定后添加；不改变知识身份或来源规则。只有成功 main 发布可激活；临时分支预览不能冒充线上正式知识。
+
+当前单份快照最多 1 MB，适合现有规模；超过时拒绝导入并保留旧版。增长后按版本化契约改为分块索引/存储，无需改变 Topic ID。旧快照不自动清理，需结合实际保留策略处理。
+
+## 本地检查（不需要账号或 API key）
+
+在仓库根目录：
+
+```sh
+python -m pip install -r requirements-dev.txt
+npm ci --ignore-scripts
+python build.py
+npm ci --ignore-scripts --prefix agent/runtime
+npm run build --prefix agent/runtime
+npm test --prefix agent/runtime
+```
+
+`build` 只运行 Wrangler `--dry-run`，产物在 `.preview/private-worker/`，不会创建或部署 Worker。集成测试用临时 RSA 签名密钥、禁止真实外网的 HTTP mocks、真实 workerd 和临时 D1；模型、GitHub 和 Access 网络交互均模拟，不进行真实计费或登录。UI 测试还验证刷新后从 D1 恢复会话、文本转义和网页阅读上下文交接。
+
+SQL migrations 追加为 `0002_private_runtime.sql`。本地迁移演练可从本目录执行：
+
+```sh
+WRANGLER_SEND_METRICS=false npx --no-install wrangler d1 migrations apply DB --local --config wrangler.jsonc
+```
+
+不要把模板里的全零 database ID 当成真实资源。真实配置应复制到忽略的 `wrangler.local.jsonc`，按照 [DEPLOYMENT.md](DEPLOYMENT.md) 接入账号。
+
+## API 与数据范围
+
+所有入口均须通过 Owner JWT；POST/DELETE 还要求同源请求头。
+
+| 入口 | 作用 |
+| --- | --- |
+| `GET /` | 私人工作台，包含受 CSP 限制的交互代码 |
+| `GET /api/status` | 身份已核验、三个版本、同步状态、模型是否配置及当日用量 |
+| `POST /api/sync` | 从固定可信来源核对内容；不接受用户上传索引 |
+| `POST /api/search` | 按已发布快照查文章/章节，返回稳定链接 |
+| `GET/POST /api/sessions` | 分页会话列表 / 创建会话 |
+| `GET /api/sessions/:id` | 本人会话、消息、候选和请求状态 |
+| `POST /api/sessions/:id/messages` | 检索、可选模型讲解、自动候选和私有保存 |
+| `GET /api/sessions/:id/export` | 本次会话与候选/证据的 JSON 导出，不包含 Secrets |
+| `DELETE /api/sessions/:id` | 删除会话、消息、候选、关联和请求；进行中的请求阻止删除 |
+
+删除会话保留独立提案审计和最小来源元数据，不会删除公开 Git 历史；不是全账户即时抹除。保留周期、备份窗口、完全清理和恢复演练须在真实账号上线前决定。参见上级 `db/README.md`。
+
+工作上下文只使用最近八条历史消息和有限候选目录；消息保存来源版本，新检索优先于旧聊天。尚未实现长期偏好记忆或会话压缩。HTTP 模型调用有超时，未完成请求不会自动重新计费；这不是发布阶段的持久 Workflows 实现。
+
+## 未完成的上线验收
+
+真实 Access 登录/退出、Worker 绑定与账号政策、模型 ID 可用性/计费、真实部署同步、云端导出恢复、设备浏览器和跨域体验仍需实际账号验证。GitHub 写入 App、正式变更提案/审批与发布、外部资料查证、持久发布任务属于后续阶段。这个版本不能自行修改网站。

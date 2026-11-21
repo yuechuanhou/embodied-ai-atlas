@@ -4,45 +4,22 @@ The future API must construct approvals from verified identity and enforce seman
 file changes, repository checks and GitHub policy separately. Never accept an
 approval object, owner configuration or current revisions from a model/client.
 """
-import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
+from agent.revisions import CONTRACT_FILES, canonical_bytes, digest, contract_digest
 
 ROOT = Path(__file__).resolve().parent.parent
-CONTRACT_FILES = (
-    "ARCHITECTURE.md", "AGENT_ARCHITECTURE.md", "CONTENT_WORKFLOW.md",
-    "agent/contracts/knowledge-change.schema.json", "agent/proposals.py",
-    "agent/change_validation.py",
-    "scripts/validate_content.py", "scripts/legacy_articles.json",
-    "content/manifest.json", "content/architecture.json", "content/topics.json",
-    "content/anchors.json",
-)
 BINDING_FIELDS = (
     "proposal_id", "proposal_version", "patch_digest", "base_commit", "contract_digest",
 )
 
 
-def canonical_bytes(value):
-    return json.dumps(value, ensure_ascii=False, sort_keys=True,
-                      separators=(",", ":"), allow_nan=False).encode("utf-8")
-
-
-def digest(value):
-    return hashlib.sha256(canonical_bytes(value)).hexdigest()
-
-
 def proposal_digest(proposal):
     """Bind the entire reviewed envelope, not only its content files."""
     return digest({k: v for k, v in proposal.items() if k != "patch_digest"})
-
-
-def contract_digest(root=ROOT):
-    """Conservative invalidation: any listed rule/metadata byte change matters."""
-    return digest({name: hashlib.sha256((root / name).read_bytes()).hexdigest()
-                   for name in CONTRACT_FILES})
 
 
 def validate_proposal(proposal):

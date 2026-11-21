@@ -1,0 +1,12 @@
+{
+  "name": "atlas-private-runtime",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=22.12.0"},
+  "scripts": {
+    "build": "WRANGLER_SEND_METRICS=false wrangler deploy --dry-run --config wrangler.jsonc --outdir ../../.preview/private-worker",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
+  },
+  "dependencies": {"jose": "6.2.18"},
+  "devDependencies": {"miniflare": "4.20260730.0", "wrangler": "4.166.0"}
+}

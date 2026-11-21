@@ -19,6 +19,9 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            agent/runtime/package-lock.json
       - run: npm ci --ignore-scripts
       - run: python -m pip install -r requirements-dev.txt
       - name: Validate article and knowledge graph references
@@ -27,6 +30,8 @@ jobs:
         run: node --check assets/site.js
       - name: Build offline site
         run: python build.py
+        env:
+          ATLAS_AGENT_ORIGIN: ${{ vars.ATLAS_AGENT_ORIGIN }}
       - name: Smoke test generated site
         run: python scripts/smoke_test.py
       - name: Test client-side view rendering
@@ -52,3 +57,9 @@ jobs:
           name: atlas-agent-interaction-preview
           path: .preview/agent-demo/
           include-hidden-files: true
+      - name: Install private runtime test dependencies
+        run: npm ci --ignore-scripts --prefix agent/runtime
+      - name: Build private Worker without deployment
+        run: npm run build --prefix agent/runtime
+      - name: Test Owner authentication, D1, synchronization and model boundaries
+        run: npm test --prefix agent/runtime

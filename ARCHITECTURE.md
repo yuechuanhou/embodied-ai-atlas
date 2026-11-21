@@ -140,5 +140,8 @@ knowledge source; private conversations, candidates and approvals live separatel
 Models propose changes; trusted services validate them and execute only an Owner's
 exact approved version. Public PRs require confirmation before creation.
 
-The current extension supplies architecture, proposal contracts and a locally tested
-database migration, not a deployed Agent. The existing static site remains independent.
+The extension supplies proposal contracts, a locally tested private Worker/D1 runtime,
+and versioned migrations. It is not deployed. Normal builds emit a content-addressed
+knowledge snapshot for trusted synchronization; this is derived data, not another
+editable knowledge source. An optional private-workbench link is enabled only through
+`ATLAS_AGENT_ORIGIN` after the destination is verified. The static site remains independent.

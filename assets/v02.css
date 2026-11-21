@@ -159,3 +159,6 @@
   .content-body{font-size:16px}
   .reference-strip nav{gap:12px 18px}
 }
+.private-agent-link{display:inline-flex;align-items:center;gap:7px;flex:none;height:35px;border:1px solid var(--line);border-radius:10px;padding:0 10px;background:var(--paper);font-size:14px;font-weight:650;text-decoration:none;color:var(--accent)}
+.private-agent-link .brand-glyph{width:22px;height:22px}
+@media(max-width:800px){.private-agent-link{padding:0 7px}.private-agent-link span{display:none}}

@@ -4,6 +4,12 @@
 locally with foreign keys enabled. It has **not** been applied to Cloudflare. No
 production/preview database, credentials or account settings are included.
 
+`0002_private_runtime.sql` adds request idempotency, per-session execution leases,
+transaction guards, usage reservations and derived snapshot/sync state. Both migrations
+are exercised in a local workerd/D1 instance by `agent/runtime/` tests; neither has
+been applied to a real Cloudflare database. Runtime HTTP calls are bounded requests,
+not durable publishing Workflows. Retention and cloud recovery still need real settings.
+
 ## Data ownership and normalization
 
 | Table | Owns |
