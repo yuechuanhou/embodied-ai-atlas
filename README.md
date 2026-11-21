@@ -17,16 +17,17 @@ The v0.2 system model remains the foundation: six Lifecycle stages, three feedba
 
 ## Build and validate
 
-Requires Python 3.9+ and Node.js 22+ for development checks. Node/jsdom are test-only; the output website needs no package installation or runtime service.
+Requires Python 3.10+ and Node.js 22+ for development checks. The static build alone supports Python 3.9+. Node/jsdom and the Agent schema checker are test-only; the output website needs no package installation or runtime service.
 
 ```sh
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 npm ci --ignore-scripts
 python scripts/validate_content.py
 python build.py
 python scripts/smoke_test.py
 npm test
 python scripts/test_content.py
+python scripts/test_agent.py
 ```
 
 Open `dist/index.html` in a browser, including offline. The build also writes `Embodied_AI_Atlas_v0.3.html` beside the repository for review/sharing. Generated output and local preview state are not committed.
@@ -56,3 +57,18 @@ Before adding knowledge, search for an existing Topic. Extend its canonical arti
 Old `?page=data-recipe` links remain valid. Views use `?view=stage&id=04`, `?view=loop&id=learning`, `?view=domain&id=data` and `?view=context&id=data-solutions`. Contextual reading uses `?page=data-recipe&context=stage%3A06`; section links append the stable heading anchor.
 
 PR validation runs without deployment, including stacked PRs. Production deployment runs only from main or an explicitly requested workflow dispatch. Review branches and PRs before merging; main merges trigger GitHub Pages.
+
+## Personal Agent foundation (not deployed)
+
+[AGENT_ARCHITECTURE.md](AGENT_ARCHITECTURE.md) maps the agreed requirements to
+design principles, module boundaries, implementation order and acceptance criteria.
+[CONTENT_WORKFLOW.md](CONTENT_WORKFLOW.md) defines automatic learning/organization,
+canonical placement and concrete Owner confirmation before public changes.
+
+`agent/contracts/knowledge-change.schema.json` and `agent/proposals.py` provide
+offline proposal integrity and approval-binding checks. They are not an authenticated
+API or a complete semantic change validator. [Private DB notes](agent/db/README.md)
+explain the locally tested migration, ownership, retention and recovery obligations.
+`requirements-dev.txt` adds the JSON Schema checker for these tests; ordinary static
+builds still require only `requirements.txt`. No online chat, cloud resources, keys or
+automatic publishing are configured by this foundation.

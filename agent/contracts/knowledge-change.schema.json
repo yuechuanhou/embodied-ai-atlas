@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.yuechuanhou.com/embodied-ai-atlas/contracts/knowledge-change-v1",
+  "title": "Private knowledge-change proposal v1",
+  "description": "A reviewable proposal, not authorization or an executable patch. Taxonomy and semantic validation come from the current repository.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "proposal_id", "proposal_version", "base_commit", "published_revision", "index_revision", "contract_digest", "patch_digest", "candidate_ids", "summary", "intents", "evidence", "file_changes", "publication"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "proposal_id": {"$ref": "#/$defs/id"},
+    "proposal_version": {"type": "integer", "minimum": 1},
+    "base_commit": {"$ref": "#/$defs/commit"},
+    "published_revision": {"$ref": "#/$defs/commit"},
+    "index_revision": {"$ref": "#/$defs/commit"},
+    "contract_digest": {"$ref": "#/$defs/sha256"},
+    "patch_digest": {"$ref": "#/$defs/sha256"},
+    "candidate_ids": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/id"}
+    },
+    "summary": {"$ref": "#/$defs/text"},
+    "intents": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["kind", "target_id", "reason"],
+        "properties": {
+          "kind": {"enum": ["extend_article", "add_section_topic", "new_article", "add_relation", "add_view_reference", "maintain_anchor", "set_focus"]},
+          "target_id": {"$ref": "#/$defs/id"},
+          "reason": {"$ref": "#/$defs/text"}
+        }
+      }
+    },
+    "evidence": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["source_id", "kind", "reference", "checked_at", "verification", "visibility", "supports"],
+        "properties": {
+          "source_id": {"$ref": "#/$defs/id"},
+          "kind": {"enum": ["official", "paper", "experience", "inference"]},
+          "reference": {"$ref": "#/$defs/text"},
+          "checked_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z(?![\\s\\S])"},
+          "verification": {"enum": ["verified", "owner_experience", "unverified"]},
+          "visibility": {"enum": ["public", "private"]},
+          "content_digest": {"$ref": "#/$defs/sha256"},
+          "supports": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/text"}}
+        }
+      }
+    },
+    "file_changes": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["path", "before_sha256", "after_utf8"],
+        "properties": {
+          "path": {"type": "string", "pattern": "^content/([a-z0-9][a-z0-9_-]*\\.md|(manifest|architecture|topics|anchors)\\.json)(?![\\s\\S])"},
+          "before_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+          "after_utf8": {"$ref": "#/$defs/text"}
+        }
+      }
+    },
+    "publication": {
+      "type": "object", "additionalProperties": false,
+      "required": ["visibility", "release_scope", "review_note"],
+      "properties": {
+        "visibility": {"const": "public"},
+        "release_scope": {"enum": ["open_pr", "merge_and_deploy"]},
+        "review_note": {"$ref": "#/$defs/text"}
+      }
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.:-]{0,127}(?![\\s\\S])"},
+    "commit": {"type": "string", "pattern": "^[a-f0-9]{40}(?![\\s\\S])"},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}(?![\\s\\S])"},
+    "text": {"type": "string", "minLength": 1}
+  }
+}

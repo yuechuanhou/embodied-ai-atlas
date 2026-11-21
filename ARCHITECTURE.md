@@ -130,3 +130,15 @@ New educational content is intentionally **outside v0.2 scope**.
 - Stage Topic entries can point directly to section Topics. A reference does not imply a complete treatment of the Stage theme; coverage notes can explicitly identify remaining gaps.
 - `#domains` is the homepage's complete Domain overview. Loop overviews link to stable `#loop-step-ID` sections.
 - Tiffany-inspired accents use `#81d8d0` for emphasis and a deeper `#08787e` for light-theme links. Neutral cool surfaces and graphite text keep the reading interface restrained. Dark-theme accents retain the lighter blue. Text palette contrast is checked against both reading surfaces.
+
+## 10. Personal Agent extension
+
+The optional personal Agent follows [AGENT_ARCHITECTURE.md](AGENT_ARCHITECTURE.md)
+and [CONTENT_WORKFLOW.md](CONTENT_WORKFLOW.md). It does not change the knowledge
+identities, taxonomy or navigation invariants above. GitHub remains the published
+knowledge source; private conversations, candidates and approvals live separately.
+Models propose changes; trusted services validate them and execute only an Owner's
+exact approved version. Public PRs require confirmation before creation.
+
+The current extension supplies architecture, proposal contracts and a locally tested
+database migration, not a deployed Agent. The existing static site remains independent.
