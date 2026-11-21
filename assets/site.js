@@ -388,6 +388,16 @@
     syncNavigation();applyReadingFocus(r);
     if(options.moveFocus){const h=app.querySelector('main h1');h?.setAttribute('tabindex','-1');h?.focus({preventScroll:true});}
     restoreReadingPosition(options.scroll);
+    notifyAgentContext();
+  }
+  function notifyAgentContext(){
+    if(!DATA.agent_preview)return;
+    const current=route();
+    let anchor='';try{anchor=decodeURIComponent(location.hash.slice(1));}catch(_){}
+    const heading=current.type==='article'?document.getElementById(anchor)?.closest('h1,h2,h3,h4,h5,h6'):null;
+    anchor=heading?.id||'';
+    const topic=current.type==='article'?DATA.topics.find(t=>t.article===current.id&&t.anchor===anchor):null;
+    document.dispatchEvent(new CustomEvent('atlas:reading-context',{detail:{...current,anchor,topic_id:topic?.id||null}}));
   }
   function rememberPosition() {
     if(location.protocol==='file:')return;
@@ -452,6 +462,7 @@
   }
   function openSearch(){
     if(searchOpen)return;
+    if(DATA.agent_preview)document.dispatchEvent(new CustomEvent('atlas:other-dialog'));
     if(sidebarOpen)closeNavigation();
     searchOpen=true;searchOpener=document.activeElement===document.body?document.getElementById('open-search'):document.activeElement;
     const overlay=document.createElement('div');overlay.id='search-overlay';overlay.className='search-backdrop';
@@ -527,7 +538,21 @@
   });
   window.addEventListener('popstate',event=>render({scroll:event.state?.atlasScroll,moveFocus:true}));
   window.addEventListener('pagehide',rememberPosition);
-  window.addEventListener('hashchange',()=>applyReadingFocus(route()));
+  window.addEventListener('hashchange',()=>{applyReadingFocus(route());notifyAgentContext();});
+  if(DATA.agent_preview){
+    document.addEventListener('atlas:context-request',notifyAgentContext);
+    document.addEventListener('atlas:agent-navigate',event=>{
+      const action=event.detail;
+      if(action?.type==='open_topic'&&topicById[action.topic_id]){
+        const topic=topicById[action.topic_id];
+        navigate(new URL(linkArticle(topic.article,'',topic.anchor),location.href));
+      }else if(action?.type==='open_article'&&byId[action.article_id]){
+        const page=byId[action.article_id];
+        if(action.anchor&&!page.toc.some(h=>h.id===action.anchor))return;
+        navigate(new URL(linkArticle(page.id,'',action.anchor),location.href));
+      }
+    });
+  }
   if(typeof matchMedia==='function')matchMedia('(max-width: 800px)').addEventListener('change',()=>{sidebarOpen=false;syncNavigation();});
   window.addEventListener('resize',()=>requestAnimationFrame(drawLifecycleEdges));
   history.scrollRestoration='manual';

@@ -45,6 +45,15 @@ jobs:
         run: node --test scripts/test_interactions.js
       - name: Test Agent proposal and private database contracts
         run: python scripts/test_agent.py
+      - name: Test semantic knowledge-change boundaries
+        run: python scripts/test_agent_changes.py
+      - name: Build isolated Agent interaction preview
+        run: python build.py --agent-demo
+      - name: Check Agent preview syntax and interactions
+        run: |
+          node --check assets/agent-demo-engine.js
+          node --check assets/agent-demo.js
+          npm run test:agent
       - name: Prepare GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload website

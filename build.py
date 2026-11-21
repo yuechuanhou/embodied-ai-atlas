@@ -1,6 +1,7 @@
 """Build Embodied AI Atlas as one offline HTML document."""
 from __future__ import annotations
 import base64
+import argparse
 import hashlib
 import html
 import json
@@ -11,6 +12,9 @@ import xml.etree.ElementTree as ET
 import mistune
 
 ROOT = pathlib.Path(__file__).resolve().parent
+arguments = argparse.ArgumentParser(description=__doc__)
+arguments.add_argument('--agent-demo', action='store_true', help='Build an isolated, simulated Agent preview')
+options = arguments.parse_args()
 CONTENT = ROOT / "content"
 manifest = json.loads((CONTENT / "manifest.json").read_text(encoding="utf-8"))
 architecture = json.loads((CONTENT / "architecture.json").read_text(encoding="utf-8"))
@@ -122,11 +126,26 @@ for article in pages:
 
 payload = {"site": manifest["site"], "sections": manifest["sections"], "pages": pages,
            "architecture": architecture, "topics": topics, "relations": relations, "focus": focus}
+if options.agent_demo:
+    import subprocess
+    from agent.proposals import contract_digest
+    source_files = {str(path.relative_to(ROOT)): path.read_text(encoding='utf-8')
+                    for path in sorted(CONTENT.iterdir()) if path.suffix in {'.md', '.json'}}
+    payload['agent_preview'] = {
+        'mode': 'simulation', 'base_commit': subprocess.check_output(
+            ['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
+        'contract_digest': contract_digest(), 'source_files': source_files,
+        'file_digests': {name: hashlib.sha256(value.encode('utf-8')).hexdigest() for name, value in source_files.items()},
+    }
 data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
 css = (ROOT / "assets" / "site.css").read_text(encoding="utf-8")
 css += "\n" + (ROOT / "assets" / "v02.css").read_text(encoding="utf-8")
 css += "\n" + (ROOT / "assets" / "lifecycle.css").read_text(encoding="utf-8")
 js = (ROOT / "assets" / "site.js").read_text(encoding="utf-8")
+if options.agent_demo:
+    css += '\n' + (ROOT / 'assets/agent-demo.css').read_text(encoding='utf-8')
+    js += '\n' + (ROOT / 'assets/agent-demo-engine.js').read_text(encoding='utf-8')
+    js += '\n' + (ROOT / 'assets/agent-demo.js').read_text(encoding='utf-8')
 brand_source = (ROOT / "assets" / "icons" / "mark.svg").read_text(encoding="utf-8")
 brand = ET.fromstring(brand_source)
 light_color, dark_color = brand.attrib["color"], brand.attrib["data-dark-color"]
@@ -172,13 +191,16 @@ page = f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <style>{css}</style></head><body>{brand_defs}<div id="app"></div>
 <script id="atlas-data" type="application/json">{data}</script><script>{js}</script>
 </body></html>'''
-dist = ROOT / "dist"
-dist.mkdir(exist_ok=True)
+dist = ROOT / ('.preview/agent-demo' if options.agent_demo else 'dist')
+dist.mkdir(parents=True, exist_ok=True)
 (dist / "index.html").write_text(page, encoding="utf-8")
 for name, content in icon_assets.items():
     (dist / name).write_bytes(content)
 release = '.'.join(manifest['site']['version'].split('.')[:2])
 # Keep the shared single-file export self-contained, including its icon metadata.
 offline = page.replace(icon_links(), icon_links(inline=True), 1)
-(ROOT.parent / f"Embodied_AI_Atlas_v{release}.html").write_text(offline, encoding="utf-8")
+if not options.agent_demo:
+    (ROOT.parent / f"Embodied_AI_Atlas_v{release}.html").write_text(offline, encoding="utf-8")
+else:
+    (dist / 'Atlas_Agent_Interaction_Preview.html').write_text(offline, encoding='utf-8')
 print(f"Built {len(pages)} articles and {len(topics)} topics -> {dist / 'index.html'} ({len(page.encode('utf-8')) / 1024:.0f} KiB)")

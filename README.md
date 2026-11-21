@@ -28,6 +28,7 @@ python scripts/smoke_test.py
 npm test
 python scripts/test_content.py
 python scripts/test_agent.py
+python scripts/test_agent_changes.py
 ```
 
 Open `dist/index.html` in a browser, including offline. The build also writes `Embodied_AI_Atlas_v0.3.html` beside the repository for review/sharing. Generated output and local preview state are not committed.
@@ -65,10 +66,17 @@ design principles, module boundaries, implementation order and acceptance criter
 [CONTENT_WORKFLOW.md](CONTENT_WORKFLOW.md) defines automatic learning/organization,
 canonical placement and concrete Owner confirmation before public changes.
 
-`agent/contracts/knowledge-change.schema.json` and `agent/proposals.py` provide
-offline proposal integrity and approval-binding checks. They are not an authenticated
-API or a complete semantic change validator. [Private DB notes](agent/db/README.md)
+`agent/contracts/knowledge-change.schema.json`, `agent/proposals.py` and
+`agent/change_validation.py` provide offline proposal integrity, approval binding,
+semantic metadata checks and an isolated candidate build. They are not an authenticated
+API, technical fact review or publisher. [Private DB notes](agent/db/README.md)
 explain the locally tested migration, ownership, retention and recovery obligations.
 `requirements-dev.txt` adds the JSON Schema checker for these tests; ordinary static
 builds still require only `requirements.txt`. No online chat, cloud resources, keys or
 automatic publishing are configured by this foundation.
+
+The [isolated Agent preview](agent/PREVIEW.md) includes an on-demand panel and
+expanded change-review workbench. Build it separately with `python build.py --agent-demo`,
+then run `npm run test:agent`. Output is `.preview/agent-demo/`, outside the production
+Pages artifact. Retrieval uses real articles and headings; new knowledge and approvals
+use clearly labeled simulations. Chats stay in memory and disappear on reload.
