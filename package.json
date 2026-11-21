@@ -2,7 +2,8 @@
   "name": "embodied-ai-atlas",
   "private": true,
   "scripts": {
-    "test": "node scripts/test_runtime.js && node --test scripts/test_interactions.js"
+    "test": "node scripts/test_runtime.js && node --test scripts/test_interactions.js",
+    "test:agent": "node --test scripts/test_agent_preview.js"
   },
   "devDependencies": {
     "jsdom": "26.1.0"

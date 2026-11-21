@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CONTRACT_FILES = (
     "ARCHITECTURE.md", "AGENT_ARCHITECTURE.md", "CONTENT_WORKFLOW.md",
     "agent/contracts/knowledge-change.schema.json", "agent/proposals.py",
+    "agent/change_validation.py",
     "scripts/validate_content.py", "scripts/legacy_articles.json",
     "content/manifest.json", "content/architecture.json", "content/topics.json",
     "content/anchors.json",
