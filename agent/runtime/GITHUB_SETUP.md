@@ -1,6 +1,6 @@
 # GitHub 执行的 D1 首次接入
 
-状态：替代接入代码与测试已准备；尚未配置真实 Secrets、运行云端工作流、创建数据库或完成 Access。Cloudflare 账号在 Owner 自己的浏览器可登录，当前云端浏览器登录失败；随后设备授权的凭据接收又被执行环境网络策略阻止。不能将“Owner 已在授权页同意”记作当前环境已登录。
+状态：2026-11-21 已在受保护的 GitHub Environment 配置凭据、运行真实云端工作流、创建专用数据库并通过两份迁移及准确 UUID 的只读复核。Access 与 Worker 尚未完成上线验收；后续见 [Worker 首次创建流程](WORKER_SETUP.md)。Cloudflare 账号在 Owner 自己的浏览器可登录，当前云端浏览器登录失败；随后设备授权的凭据接收又被执行环境网络策略阻止。不能将“Owner 已在授权页同意”记作当前环境已登录。
 
 这份流程从 GitHub runner 访问 Cloudflare 官方 API，是独立的部署执行方式。无需将浏览器会话、密码、OAuth 回调或 API token 发到聊天。旧设备授权若仍显示在账号授权列表中，可在新方式验证后由 Owner 撤销；本流程不会替用户修改账号授权。
 
@@ -51,12 +51,12 @@ Environment 的审核规则必须在添加凭据前设置。工作流本身不�
 
 同名数据库存在而 ID 未配置时，plan 只提示核对；apply 拒绝接管。已有库迁移历史不匹配时也停止，不读取聊天内容来判断归属。数据库列表超过本脚本的有界检查范围时拒绝继续，应先审阅扩容处理。
 
-真实凭据和云端 API 尚未验证。CI 使用模拟 HTTP；本地 Wrangler 演练验证迁移配置和 SQL，但不等同于 GitHub 到 Cloudflare 的真实验收。原有 Pages 工作流不负责部署此私有数据库。
+2026-11-21 的真实云端结果：[创建并初始化](https://github.com/yuechuanhou/embodied-ai-atlas/actions/runs/44897836642)，返回 `created_and_initialized`、两份迁移；[准确 UUID 的只读复核](https://github.com/yuechuanhou/embodied-ai-atlas/actions/runs/44898423999)，返回 `existing_schema_verified`、`mutations=false`。CI 仍使用模拟 HTTP；这些运行记录不代替 Access/Worker 验收。原有 Pages 工作流不负责部署此私有数据库。
 
 ## 4. 存储接入后的身份步骤
 
 Owner 在自己的 Cloudflare 控制台启用 Zero Trust，并核对免费计划/服务条款，再建立只允许会话中确认的确切 Owner 邮箱的 Access 策略。邮箱验证码可作为首轮方式。这里的 D1 token 不含 Access 权限，因此无法用它创建身份策略。
 
-随后核对 team issuer、application AUD、工作台准确 origin，与独立 Worker 绑定、Owner 校验、导出恢复一起验收。所有条件满足后才考虑启用私人工作台及公开 Atlas 入口；当前没有获得自动合并或公开部署授权。
+随后按 [Worker 首次创建流程](WORKER_SETUP.md) 先创建入口关闭的独立 Worker，给单个 Worker 绑定现有 Owner 策略，再核对 team issuer、application AUD、工作台准确 origin，与 Owner 校验、导出恢复一起验收。所有条件满足后才考虑启用私人工作台及公开 Atlas 入口；合并和实际创建资源仍需当前步骤的明确授权。
 
 官方参考：[GitHub Actions 接入](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/)、[D1 创建 API](https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/create/)、[D1 migrations](https://developers.cloudflare.com/d1/reference/migrations/)、[GitHub Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/managing-environments-for-deployment)。

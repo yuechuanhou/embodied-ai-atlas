@@ -1,8 +1,8 @@
 # Atlas private runtime — implementation v0.1
 
-状态：可部署代码、打包和本地 Workers/D1 集成验证已完成；**尚未配置或部署真实 Cloudflare 资源，也未调用真实付费模型**。依赖上一轮架构与交互工作。此目录与公开 Pages 阅读网站分离，不属于 Personal OS 主应用。
+状态：可部署代码、打包和本地 Workers/D1 集成验证已完成；**2026-11-21 已创建真实 D1 并验证两份迁移和准确 UUID，Access/Worker 尚未完成上线验收，也未调用真实付费模型**。依赖上一轮架构与交互工作。此目录与公开 Pages 阅读网站分离，不属于 Personal OS 主应用。
 
-受环境网络限制时，新增的 [GitHub D1 首次接入](GITHUB_SETUP.md) 可在 Owner 配置 Environment Secrets、审阅合并并手动启动后运行。该流程仍未在云端执行，不代表身份接入已完成。
+受环境网络限制时，[GitHub D1 首次接入](GITHUB_SETUP.md) 已在 Owner 配置 Environment Secrets、审阅合并并手动启动后成功运行；身份接入仍需独立验收。[Worker 首次创建流程](WORKER_SETUP.md) 提供关闭所有入口和定时任务的后续准备，不随普通推送部署。
 
 ## 已实现的边界
 
