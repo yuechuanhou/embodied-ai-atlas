@@ -3,12 +3,24 @@ import assert from 'node:assert/strict';
 import {harness, token, ORIGIN} from './helpers.js';
 import {randomUUID} from 'node:crypto';
 import {JSDOM, VirtualConsole} from 'jsdom';
+import {modelInput} from '../src/model.js';
 
 const enabled = {MODEL_PROVIDER: 'openai', MODEL_NAME: 'synthetic-test-model', MODEL_API_KEY: 'synthetic-secret', DAILY_CALL_LIMIT: '10', DAILY_TOKEN_LIMIT: '200000'};
 const turn = (message = 'VIO 与 IMU') => ({request_id: randomUUID(), message, reading_context: {}});
 async function prepared(t, config = {}) {const h = await harness(config); t.after(h.dispose); assert.equal((await h.sync()).status, 200); h.sessionId = await h.session(); return h;}
 const send = (h, body, session = h.sessionId) => h.request('/api/sessions/' + session + '/messages', {method: 'POST', body});
 async function modelStarted(h) {for (let i = 0; i < 200 && !h.world.modelCalls.length; i++) await new Promise(resolve => setTimeout(resolve, 5)); assert(h.world.modelCalls.length);}
+
+test('long learning context fits its byte budget while preserving the question and fresh evidence', () => {
+  const question = '问题'.repeat(2000), sources = Array.from({length: 6}, (_, i) => ({source_id: 'current-' + i, title: '原文', excerpt: '当前证据'.repeat(250)}));
+  const input = modelInput({question, selectedText: '选文'.repeat(1000), context: {},
+    history: Array.from({length: 8}, () => ({role: 'user', body: '历史'.repeat(400)})), sources,
+    candidates: [], snapshot: {domains: [{id: 'foundations', name: 'Foundations'}], revision: 'a'.repeat(40), contract_digest: 'b'.repeat(64)}});
+  assert(new TextEncoder().encode(input.instructions + input.input).length <= 24_000);
+  const data = JSON.parse(input.input); assert.equal(data.question, question); assert.equal(data.revision, 'a'.repeat(40));
+  assert.equal(data.sources[0].source_id, 'current-0'); assert(data.sources[0].excerpt.length >= 200);
+  assert(data.history.length < 8); assert.equal(sources.length, 6);
+});
 
 test('private workbench and every API require a verified Owner JWT', async t => {
   const h = await harness(); t.after(h.dispose);
@@ -89,6 +101,17 @@ test('retrieval mode persists chat, canonical citations and replays without dupl
   const session = (await h.request('/api/sessions/' + h.sessionId)).data;
   assert.equal(session.messages.length, 2); assert.equal(h.world.modelCalls.length, 0);
   assert.equal((await send(h, {...body, message: 'changed'})).status, 409);
+});
+
+test('a reading-context question retrieves the current section even without its keywords', async t => {
+  const h = await prepared(t), topic = h.world.snapshot.topics.find(t => t.id === 'vio');
+  const body = {...turn('解释这一段'), reading_context: {article_id: topic.article, topic_id: topic.id, anchor: topic.anchor}};
+  const result = await send(h, body); assert.equal(result.status, 200);
+  assert.equal(result.data.citations[0].topic_id, topic.id); assert.equal(result.data.citations[0].anchor, topic.anchor);
+  const english = await send(h, {...body, request_id: randomUUID(), message: 'Explain this section please'});
+  assert.equal(english.data.citations[0].topic_id, topic.id);
+  assert.equal((await h.request('/api/sessions/' + h.sessionId)).data.candidates.length, 0);
+  assert.equal((await send(h, {...turn(), reading_context: {article_id: 'invented'}})).status, 400);
 });
 
 test('unknown questions become private unverified candidates without guessed ownership', async t => {

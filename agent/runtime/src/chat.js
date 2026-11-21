@@ -38,7 +38,7 @@ export async function sendMessage({body, sessionId, ownerId, env, snapshot, fres
       db.prepare("INSERT INTO messages(id,session_id,sequence,role,body,status,metadata_json,created_at) VALUES(?,?,?,'user',?,'complete',?,?)")
         .bind(requestId + ':user', sessionId, sequence, body.message, canonical({reading_context: context, selected_text: selected, revision: snapshot.revision}), now),
     ]);
-    const sources = search(snapshot, body.message), config = modelConfiguration(env);
+    const sources = search(snapshot, body.message, 6, context), config = modelConfiguration(env);
     const catalog = (await db.prepare('SELECT id,title,placement_json FROM knowledge_candidates WHERE session_id=? AND owner_id=? ORDER BY updated_at DESC LIMIT 12')
       .bind(sessionId, ownerId).all()).results;
     let result, mode = 'retrieval';

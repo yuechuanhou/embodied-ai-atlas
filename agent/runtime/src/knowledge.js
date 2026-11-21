@@ -99,8 +99,12 @@ export function createKnowledgeSync(fetchImpl) {
 }
 
 const normalized = text => text.normalize('NFKC').toLowerCase();
-export function search(snapshot, query, limit = 6) {
-  const ignored = new Set(['如何', '什么', '一个', '学习', '知识', '了解', '帮我', '这个', '当前', '网站', '介绍']);
+export function search(snapshot, query, limit = 6, context = {}) {
+  const focusedTopic = snapshot.topics.find(t => t.id === context.topic_id);
+  const focusedArticle = context.article_id || focusedTopic?.article;
+  const focusedAnchor = context.anchor || focusedTopic?.anchor || null;
+  const ignored = new Set(['如何', '什么', '一个', '学习', '知识', '了解', '帮我', '这个', '当前', '网站', '介绍',
+    '解释', '这一', '一段', '这段', '段落', '一下', 'explain', 'this', 'that', 'section', 'please', 'what', 'does', 'mean', 'the', 'it']);
   const terms = [...new Set((normalized(query).match(/[a-z][a-z0-9_-]{1,}|[\u3400-\u9fff]{2,}/g) || []).flatMap(t =>
     /^[a-z]/.test(t) ? [t] : Array.from({length: t.length - 1}, (_, i) => t.slice(i, i + 2))))].filter(t => !ignored.has(t));
   const has = (text, term) => /^[a-z0-9_-]{2,3}$/.test(term) ? new RegExp('(^|[^a-z0-9])' + term + '($|[^a-z0-9])').test(text) : text.includes(term);
@@ -110,7 +114,8 @@ export function search(snapshot, query, limit = 6) {
       const topic = snapshot.topics.find(t => t.article === article.id && t.anchor === section.anchor);
       const title = normalized([section.title, topic?.title, ...(topic?.aliases || [])].join(' '));
       const body = normalized(section.text);
-      const score = terms.reduce((sum, term, i) => sum + (has(title, term) ? 20 + terms.length - i : 0) + (has(body, term) ? 1 : 0), 0);
+      const score = terms.reduce((sum, term, i) => sum + (has(title, term) ? 20 + terms.length - i : 0) + (has(body, term) ? 1 : 0), 0) +
+        (article.id === focusedArticle && section.anchor === focusedAnchor ? 12 : 0);
       if (!score) continue;
       const anchor = section.anchor;
       hits.push({source_id: article.id + (anchor ? ':' + anchor : ''), article_id: article.id, topic_id: topic?.id || article.id,
