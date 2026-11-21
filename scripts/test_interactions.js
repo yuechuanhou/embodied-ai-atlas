@@ -185,3 +185,18 @@ test('minimal map groups feedback targets 01–05 and retains all six Stage link
   assert(d.getElementById('feedback-caption').textContent.includes('01–05'));
   assert.equal(d.querySelector('[data-stage="03"]').search,'?view=stage&id=03');
 });
+
+test('transparent shared brand mark changes to light Tiffany in dark reading mode',()=>{
+  const {d,w,click}=boot('?page=home',{collapsed:false});
+  const mark=()=>d.querySelector('svg.brand-glyph');
+  assert.equal(mark().querySelector('use').getAttribute('href'),'#atlas-brand-mark');
+  assert(d.getElementById('atlas-brand-mark'));
+  assert.equal(d.querySelector('.brand-dot'),null);
+  assert.equal(w.getComputedStyle(mark()).backgroundColor,'rgba(0, 0, 0, 0)');
+  assert.equal(w.getComputedStyle(mark()).color,'rgb(8, 120, 126)');
+  click('#theme-button');
+  assert.equal(w.getComputedStyle(mark()).color,'rgb(157, 225, 217)');
+  assert.equal(w.getComputedStyle(mark()).backgroundColor,'rgba(0, 0, 0, 0)');
+  click('#theme-button');
+  assert.equal(w.getComputedStyle(mark()).color,'rgb(8, 120, 126)');
+});

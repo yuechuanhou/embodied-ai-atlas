@@ -6,8 +6,8 @@ import html
 import json
 import pathlib
 import re
-import shutil
 import unicodedata
+import xml.etree.ElementTree as ET
 import mistune
 
 ROOT = pathlib.Path(__file__).resolve().parent
@@ -127,20 +127,40 @@ css = (ROOT / "assets" / "site.css").read_text(encoding="utf-8")
 css += "\n" + (ROOT / "assets" / "v02.css").read_text(encoding="utf-8")
 css += "\n" + (ROOT / "assets" / "lifecycle.css").read_text(encoding="utf-8")
 js = (ROOT / "assets" / "site.js").read_text(encoding="utf-8")
+brand_source = (ROOT / "assets" / "icons" / "mark.svg").read_text(encoding="utf-8")
+brand = ET.fromstring(brand_source)
+light_color, dark_color = brand.attrib["color"], brand.attrib["data-dark-color"]
+css += f"\n.brand-glyph{{color:{light_color}}}\n:root[data-theme='dark'] .brand-glyph{{color:{dark_color}}}"
+ET.register_namespace("", "http://www.w3.org/2000/svg")
+symbol = ET.fromstring(brand_source)
+symbol.tag = "{http://www.w3.org/2000/svg}symbol"
+symbol.attrib = {"id": "atlas-brand-mark", "viewBox": brand.attrib["viewBox"]}
+brand_defs = '<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="0" height="0" style="position:absolute;overflow:hidden">' + ET.tostring(symbol, encoding="unicode") + '</svg>'
+favicon = ET.fromstring(brand_source)
+favicon.set("viewBox", "6 6 52 52")
+favicon.attrib.pop("data-dark-color")
+favicon_style = ET.Element("{http://www.w3.org/2000/svg}style")
+favicon_style.text = f":root{{color:{light_color}}}@media(prefers-color-scheme:dark){{:root{{color:{dark_color}}}}}"
+favicon.insert(0, favicon_style)
 icons = [
-    ("icon", "image/x-icon", "16x16 32x32 48x48", "favicon.ico"),
-    ("icon", "image/png", "32x32", "favicon-32.png"),
-    ("icon", "image/svg+xml", "any", "favicon.svg"),
-    ("apple-touch-icon", "image/png", "180x180", "apple-touch-icon.png"),
+    ("icon", "image/x-icon", "16x16 32x32 48x48", "favicon.ico", ""),
+    ("icon", "image/x-icon", "16x16 32x32 48x48", "favicon-dark.ico", "(prefers-color-scheme: dark)"),
+    ("icon", "image/png", "32x32", "favicon-32.png", ""),
+    ("icon", "image/png", "32x32", "favicon-dark-32.png", "(prefers-color-scheme: dark)"),
+    ("icon", "image/svg+xml", "any", "favicon.svg", ""),
+    ("apple-touch-icon", "image/png", "180x180", "apple-touch-icon.png", ""),
 ]
+icon_assets = {name: ((ROOT / "assets" / "icons" / name).read_bytes() if name != "favicon.svg"
+                     else ET.tostring(favicon, encoding="utf-8")) for _, _, _, name, _ in icons}
 
 def icon_links(inline=False):
     links = []
-    for rel, mime, sizes, name in icons:
-        content = (ROOT / "assets" / "icons" / name).read_bytes()
+    for rel, mime, sizes, name, media in icons:
+        content = icon_assets[name]
         href = (f"data:{mime};base64,{base64.b64encode(content).decode()}" if inline
                 else f"{name}?v={hashlib.sha256(content).hexdigest()[:10]}")
-        links.append(f'<link rel="{rel}" type="{mime}" sizes="{sizes}" href="{href}"/>')
+        media_attr = f' media="{media}"' if media else ''
+        links.append(f'<link rel="{rel}" type="{mime}" sizes="{sizes}" href="{href}"{media_attr}/>')
     return "\n".join(links)
 
 page = f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
@@ -149,14 +169,14 @@ page = f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="description" content="Embodied AI Atlas: system lifecycle, robot execution, learning and engineering."/>
 <title>Embodied AI Atlas · 具身智能知识图谱</title>
 {icon_links()}
-<style>{css}</style></head><body><div id="app"></div>
+<style>{css}</style></head><body>{brand_defs}<div id="app"></div>
 <script id="atlas-data" type="application/json">{data}</script><script>{js}</script>
 </body></html>'''
 dist = ROOT / "dist"
 dist.mkdir(exist_ok=True)
 (dist / "index.html").write_text(page, encoding="utf-8")
-for _, _, _, name in icons:
-    shutil.copyfile(ROOT / "assets" / "icons" / name, dist / name)
+for name, content in icon_assets.items():
+    (dist / name).write_bytes(content)
 release = '.'.join(manifest['site']['version'].split('.')[:2])
 # Keep the shared single-file export self-contained, including its icon metadata.
 offline = page.replace(icon_links(), icon_links(inline=True), 1)

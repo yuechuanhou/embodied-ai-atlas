@@ -33,7 +33,9 @@ Open `dist/index.html` in a browser, including offline. The build also writes `E
 
 The published/HTTP preview uses client-side history and scroll restoration. Direct `file:` use preserves native file navigation because browsers restrict history changes there; local preference storage may be unavailable, but theme/sidebar toggles still work for the open page.
 
-Bookmark and tab icons reuse the site's Tiffany orbit mark. The build publishes SVG, PNG, multi-size ICO and Apple touch icons with relative URLs so the Atlas keeps its own identity under the GitHub Pages subpath. The standalone HTML embeds those icons instead. `assets/icons/favicon.svg` is the vector source; update its raster companions when changing the mark.
+The website Logo and bookmark icons use the same transparent orbit mark, without a tile or border. `assets/icons/mark.svg` owns its geometry and the light (`#08787e`) / dark (`#9de1d9`) colors. The build derives an inline SVG symbol, its theme colors and an adaptive SVG favicon from that source. The website follows its reading theme; favicons follow the browser's preferred color scheme, independently of the page theme. Transparent light/dark PNG and multi-size ICO fallbacks and an Apple touch icon use relative, content-versioned URLs for GitHub Pages subpaths. The standalone HTML embeds its icon links.
+
+After editing the mark, regenerate raster companions with `python scripts/generate_icons.py` before building. That maintenance-only script needs `Pillow` and `PyMuPDF` (`python -m pip install Pillow PyMuPDF`); normal builds and CI do not need those packages.
 
 ## Sources and maintenance
 
@@ -46,6 +48,7 @@ Bookmark and tab icons reuse the site's Tiffany orbit mark. The build publishes 
 | `content/anchors.json` | Persistent IDs for registered headings and historical aliases |
 | `assets/site.js`, `site.css`, `v02.css`, `lifecycle.css` | Routing, interactions and presentation; the minimal homepage map has a dedicated stylesheet |
 | `assets/icons/` | Atlas favicon and Apple touch icon assets |
+| `scripts/generate_icons.py` | Regenerates transparent raster icons from the canonical SVG; only needed when changing the mark |
 | `scripts/legacy_articles.json` | Historical article IDs protected while allowing growth |
 
 Before adding knowledge, search for an existing Topic. Extend its canonical article/section or register a new Topic in the appropriate Domain. Add only useful typed relations and view mappings. When renaming a registered heading, update the lookup in metadata while preserving its anchor ID.
