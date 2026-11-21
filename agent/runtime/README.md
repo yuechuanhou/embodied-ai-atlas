@@ -2,6 +2,8 @@
 
 状态：可部署代码、打包和本地 Workers/D1 集成验证已完成；**尚未配置或部署真实 Cloudflare 资源，也未调用真实付费模型**。依赖上一轮架构与交互工作。此目录与公开 Pages 阅读网站分离，不属于 Personal OS 主应用。
 
+受环境网络限制时，新增的 [GitHub D1 首次接入](GITHUB_SETUP.md) 可在 Owner 配置 Environment Secrets、审阅合并并手动启动后运行。该流程仍未在云端执行，不代表身份接入已完成。
+
 ## 已实现的边界
 
 - Worker 对工作台和所有 API 校验 Access JWT 的签名、RS256、固定 issuer、audience、有效期及唯一 Owner 邮箱。邮箱在私有配置中；不接受客户端传入 Owner，不提供开发鉴权绕过。
