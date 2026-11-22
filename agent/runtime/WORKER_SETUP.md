@@ -37,7 +37,7 @@ Owner 已在会话中提供 Zero Trust team domain，并确认保存了访问策
 
 Wrangler 使用固定的绝对代码路径、临时 0600 配置和固定生产名称；所有公开入口关闭，不设置 routes，没有后台同步和真实身份变量。运行环境的现有 JWT 校验在缺少身份配置时拒绝请求。
 
-上传失败或后续验证失败时，资源可能已创建；保留现状、先运行 plan 并在控制台核对，不自动删除、重建、回滚或重试。首次创建检查与上传不是云端原子事务；审核期间不要从其他终端并发部署同名 Worker。
+上传失败或后续验证失败时，资源可能已创建；保留现状、先运行 plan 并在控制台核对，不自动删除、重建、回滚或重试。部署诊断仅输出最多三个数字 API 错误码或固定类别，原始 stdout/stderr 只在有界私有内存和临时日志中处理，不回显账户信息、邮箱、凭据或 API 原始响应。首次创建检查与上传不是云端原子事务；审核期间不要从其他终端并发部署同名 Worker。
 
 ## 3. 给单个 Worker 绑定现有 Access 策略
 
@@ -59,3 +59,5 @@ Wrangler 使用固定的绝对代码路径、临时 0600 配置和固定生产�
 新增测试覆盖只读计划、配置校验、数据库身份、固定目标、拒绝覆盖、关闭入口与预览、禁止 Cron/模型、异常中断和输出脱敏。已有真实 Workers/D1 测试继续验证 Owner JWT 拒绝路径。临时 staging 配置需使用固定 Wrangler 版本进行离线 dry-run；本地与 CI 不使用真实部署凭据，也不代替首次云端验收。
 
 官方参考：[Workers Access](https://developers.cloudflare.com/workers/configuration/cloudflare-access/)、[workers.dev](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)、[GitHub Actions](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/)、[D1 元数据](https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/get/)、[Worker 设置](https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/script_and_version_settings/methods/get/)、[入口状态](https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/subdomain/methods/get/)、[Cron 状态](https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/schedules/methods/get/)。
+
+权限核对补充：Cloudflare 当前的新 Workers 角色中，首次创建需要 Workers 产品范围的 Admin；Editor 负责已有 Worker 的部署。旧 Workers Scripts Edit 仍被列为继续有效的旧权限，不能把它和新 Editor 的创建能力直接等同。遇到授权错误时先核对实际 Token 所用角色与范围；不因一次不明上传失败而自动扩权。参考：[当前 Workers 权限](https://developers.cloudflare.com/workers/authorization/workers/)。

@@ -21,21 +21,39 @@ export function stagingConfig(databaseId) {
     vars: {MODEL_PROVIDER: 'disabled'}};
 }
 
-// Config and Wrangler logs stay private and ephemeral; no credentials in arguments.
-export async function deployClosedWorker(databaseId, env, {dryRun = false} = {}) {
+// Only numeric API codes or fixed categories may leave the private subprocess buffer.
+export function deploymentFailureMessage(output) {
+  const text = String(output).slice(-65_536).replace(/\u001b\[[0-9;]*m/g, '');
+  const codes = [...new Set([...text.matchAll(/\[code:\s*(\d{4,6})\]/g)].map(m => m[1]))].slice(0, 3);
+  if (codes.length) return 'worker_deployment_failed_cf_' + codes.join('_') + '_review_before_retry';
+  if (/authentication error|unauthorized|forbidden|not authorized|insufficient.*permission/i.test(text))
+    return 'worker_deployment_failed_authorization_review_before_retry';
+  if (/workers\.dev.{0,100}subdomain|register.{0,100}subdomain/i.test(text))
+    return 'worker_deployment_failed_subdomain_setup_review_before_retry';
+  if (/fetch failed|ENOTFOUND|ETIMEDOUT|ECONNRESET|UND_ERR/.test(text))
+    return 'worker_deployment_failed_network_review_before_retry';
+  return 'worker_deployment_incomplete_review_before_retry';
+}
+
+// Config and raw Wrangler logs stay private and ephemeral; no credentials in arguments.
+export async function deployClosedWorker(databaseId, env, {dryRun = false, spawnImpl = spawn} = {}) {
   const temporary = await mkdtemp(path.join(tmpdir(), 'atlas-worker-'));
   try {
     const config = path.join(temporary, 'wrangler.json');
     await writeFile(config, JSON.stringify(stagingConfig(databaseId)), {mode: 0o600});
-    const code = await new Promise((resolve, reject) => {
-      const child = spawn(process.execPath, [path.join(ROOT, 'node_modules/wrangler/bin/wrangler.js'),
+    const result = await new Promise((resolve, reject) => {
+      let output = '';
+      const remember = data => {output = (output + data.toString()).slice(-65_536);};
+      const child = spawnImpl(process.execPath, [path.join(ROOT, 'node_modules/wrangler/bin/wrangler.js'),
         'deploy', '--config', config, ...(dryRun ? ['--dry-run', '--outdir', path.join(temporary, 'bundle')] : [])], {cwd: ROOT, env: {...env, CI: 'true',
           WRANGLER_SEND_METRICS: 'false', XDG_CONFIG_HOME: temporary,
-          WRANGLER_LOG_PATH: path.join(temporary, 'logs')}, stdio: ['ignore', 'ignore', 'ignore']});
+          WRANGLER_LOG_PATH: path.join(temporary, 'logs')}, stdio: ['ignore', 'pipe', 'pipe']});
+      child.stdout.on('data', remember);
+      child.stderr.on('data', remember);
       child.on('error', () => reject(new StagingError('worker_process_failed_review_before_retry')));
-      child.on('close', resolve);
+      child.on('close', code => resolve({code, output}));
     });
-    requireValue(code === 0, 'worker_deployment_incomplete_review_before_retry');
+    requireValue(result.code === 0, deploymentFailureMessage(result.output));
   } finally {await rm(temporary, {recursive: true, force: true});}
 }
 
