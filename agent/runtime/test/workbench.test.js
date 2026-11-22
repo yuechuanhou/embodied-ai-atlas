@@ -125,14 +125,14 @@ test('per-conversation delete can cancel safely and deletes only the selected in
   const h = await seededConversations(t); let calls = 0;
   const ui = await open(t, h, (path, init) => {if (init.method === 'DELETE') calls++;});
   const activeId = ui.d.querySelector('.session-item[aria-current=true]').dataset.sessionId;
-  const remove = [...ui.d.querySelectorAll('.session-delete')].find(el => el.dataset.sessionId !== activeId);
+  const remove = [...ui.d.querySelectorAll('.session-actions-trigger')].find(el => el.dataset.sessionId !== activeId);
   const removedId = remove.dataset.sessionId, before = ui.d.getElementById('messages').textContent;
   ui.d.getElementById('question').value = 'Keep the active draft';
-  remove.click(); assert.equal(ui.d.getElementById('delete-dialog').open, true);
+  remove.click(); ui.d.getElementById('menu-delete').click(); assert.equal(ui.d.getElementById('delete-dialog').open, true);
   assert(ui.d.getElementById('delete-scope').textContent.includes('未入库候选')); assert.equal(ui.d.activeElement.id, 'delete-cancel');
   ui.d.getElementById('delete-cancel').click(); assert.equal(calls, 0); assert.equal(ui.d.activeElement, remove);
   assert.equal((await h.request('/api/sessions/' + removedId)).status, 200);
-  remove.click(); ui.d.getElementById('delete-confirm').click(); ui.d.getElementById('delete-confirm').click();
+  remove.click(); ui.d.getElementById('menu-delete').click(); ui.d.getElementById('delete-confirm').click(); ui.d.getElementById('delete-confirm').click();
   await until(() => !ui.d.getElementById('delete-dialog').open);
   await until(() => ui.d.querySelectorAll('.session-row').length === 1);
   assert.equal(calls, 1); assert.equal((await h.request('/api/sessions/' + removedId)).status, 404);
@@ -164,4 +164,84 @@ test('server rejection of deletion retains the conversation and candidate withou
   assert.equal(ui.d.getElementById('delete-dialog').open, true); assert(ui.d.getElementById('delete-error').textContent.includes('仍在处理中'));
   assert(ui.d.querySelector('.message')); assert(ui.d.querySelector('.candidate')); assert.equal((await h.request('/api/sessions/' + id)).status, 200);
   assert.equal(ui.d.getElementById('delete-confirm').disabled, false); assert.equal(h.world.modelCalls.length, 0);
+});
+
+test('pin metadata survives renaming, later messages and exports without replacing other summary keys', async t => {
+  const h = await harness(); t.after(h.dispose); await h.sync(); const id = await h.session(), path = '/api/sessions/' + id;
+  assert.equal((await h.request(path)).data.session.pinned, false);
+  await h.db.prepare('UPDATE sessions SET summary_json=? WHERE id=?').bind(JSON.stringify({title: 'Keep this title', memory: {other: true}}), id).run();
+  const pin = await h.request(path, {method: 'PATCH', body: {pinned: true}}); assert.equal(pin.status, 200); assert.equal(pin.data.pinned, true);
+  await h.request(path, {method: 'PATCH', body: {title: 'Changed title'}});
+  await h.request(path + '/messages', {method: 'POST', body: {request_id: randomUUID(), message: 'Known VIO question', reading_context: {}}});
+  const exported = (await h.request(path + '/export')).data.session;
+  assert.equal(exported.title, 'Changed title'); assert.equal(exported.pinned, true);
+  assert.deepEqual(JSON.parse(exported.summary_json).memory, {other: true});
+  const unpin = await h.request(path, {method: 'PATCH', body: {pinned: false}}); assert.equal(unpin.data.pinned, false);
+  assert.equal((await h.request(path)).data.session.title, 'Changed title'); assert.equal(h.world.modelCalls.length, 0);
+});
+
+test('pin patch accepts only booleans and retains the same Owner and origin boundary as rename', async t => {
+  const h = await harness(); t.after(h.dispose); const id = await h.session(), path = '/api/sessions/' + id;
+  for (const body of [{}, {pinned: 'true'}, {pinned: 1}, {pinned: null}, {pinned: false, owner_id: 'foreign'}, {pinned: true, title: ''}]) {
+    assert.equal((await h.request(path, {method: 'PATCH', body})).status, 400);
+  }
+  assert.equal((await h.request(path, {method: 'PATCH', body: {pinned: true}, jwtOverride: null})).status, 401);
+  assert.equal((await h.request(path, {method: 'PATCH', body: {pinned: true}, headers: {Origin: 'https://foreign.test'}})).status, 403);
+  await h.db.prepare('UPDATE sessions SET owner_id=? WHERE id=?').bind('foreign-owner', id).run();
+  assert.equal((await h.request(path, {method: 'PATCH', body: {pinned: true}})).status, 404);
+});
+
+test('pinned conversations are ordered before recent ones across pagination and missing flags stay unpinned', async t => {
+  const h = await harness(); t.after(h.dispose); const seed = await h.session();
+  const owner = (await h.db.prepare('SELECT owner_id FROM sessions WHERE id=?').bind(seed).first()).owner_id;
+  const ids = Array.from({length: 55}, () => randomUUID());
+  await h.db.batch(ids.map((id, i) => h.db.prepare('INSERT INTO sessions(id,owner_id,created_at,updated_at) VALUES(?,?,1,?)').bind(id, owner, i + 2)));
+  await h.request('/api/sessions/' + ids[0], {method: 'PATCH', body: {pinned: true}});
+  await h.db.prepare('UPDATE sessions SET updated_at=2 WHERE id=?').bind(ids[0]).run();
+  const first = (await h.request('/api/sessions')).data, second = (await h.request('/api/sessions?offset=' + first.next_offset)).data;
+  assert.equal(first.sessions[0].id, ids[0]); assert.equal(first.sessions[0].pinned, true);
+  assert(first.sessions.slice(1).every(s => s.pinned === false));
+  const all = [...first.sessions, ...second.sessions].map(s => s.id); assert.equal(new Set(all).size, 56); assert.equal(all.length, 56);
+  await h.request('/api/sessions/' + ids[0], {method: 'PATCH', body: {pinned: false}});
+  assert((await h.request('/api/sessions')).data.sessions.every(s => s.pinned === false));
+});
+
+test('conversation menu pins and renames another session while preserving the active conversation and draft', async t => {
+  const h = await seededConversations(t), ui = await open(t, h);
+  const activeId = ui.d.querySelector('.session-item[aria-current=true]').dataset.sessionId;
+  const triggerFor = id => [...ui.d.querySelectorAll('.session-actions-trigger')].find(b => b.dataset.sessionId === id);
+  const target = [...ui.d.querySelectorAll('.session-actions-trigger')].find(b => b.dataset.sessionId !== activeId), id = target.dataset.sessionId;
+  const before = ui.d.getElementById('messages').textContent, heading = ui.d.getElementById('conversation-title').textContent;
+  ui.d.getElementById('question').value = 'Keep my next question'; target.click();
+  assert.equal(target.getAttribute('aria-expanded'), 'true'); assert.equal(ui.d.activeElement.id, 'menu-pin');
+  ui.d.dispatchEvent(new ui.dom.window.KeyboardEvent('keydown', {key: 'ArrowDown', bubbles: true})); assert.equal(ui.d.activeElement.id, 'menu-rename');
+  ui.d.dispatchEvent(new ui.dom.window.KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+  assert.equal(ui.d.getElementById('session-menu').hidden, true); assert.equal(ui.d.activeElement, target);
+  target.click(); ui.d.getElementById('menu-pin').click();
+  await until(() => !ui.d.getElementById('send').disabled && ui.d.querySelector('.pinned-mark'));
+  assert.equal(ui.d.querySelector('.session-item').dataset.sessionId, id);
+  assert.equal((await h.request('/api/sessions')).data.sessions[0].pinned, true);
+  assert.equal(ui.d.getElementById('messages').textContent, before); assert.equal(ui.d.getElementById('question').value, 'Keep my next question');
+  triggerFor(id).click(); assert.equal(ui.d.getElementById('menu-pin-label').textContent, '取消置顶'); ui.d.getElementById('menu-rename').click();
+  ui.d.getElementById('session-title').value = 'Renamed <img src=x>';
+  ui.d.getElementById('rename-form').dispatchEvent(new ui.dom.window.Event('submit', {bubbles: true, cancelable: true}));
+  await until(() => !ui.d.getElementById('rename-dialog').open);
+  assert.equal(ui.d.getElementById('conversation-title').textContent, heading); assert.equal(ui.d.getElementById('question').value, 'Keep my next question');
+  assert.equal(ui.d.activeElement.dataset.sessionId, id);
+  assert.equal((await h.request('/api/sessions/' + id)).data.session.pinned, true); assert.equal(ui.d.querySelector('.session-item img'), null);
+  const restored = await open(t, h); assert.equal(restored.d.querySelector('.session-item').dataset.sessionId, id);
+  assert(restored.d.querySelector('.session-item').textContent.includes('Renamed <img src=x>'));
+  restored.d.querySelector('.session-actions-trigger').click(); restored.d.getElementById('menu-pin').click();
+  await until(() => !restored.d.getElementById('send').disabled && !restored.d.querySelector('.pinned-mark'));
+  assert.equal((await h.request('/api/sessions/' + id)).data.session.pinned, false); assert.equal(h.world.modelCalls.length, 0);
+  assert.deepEqual(ui.errors, []); assert.deepEqual(restored.errors, []);
+});
+
+test('failed pin writes keep the list and current draft intact and never claim a successful pin', async t => {
+  const h = await seededConversations(t);
+  const ui = await open(t, h, (path, init) => {if (init.method === 'PATCH' && JSON.parse(init.body).pinned === true) throw new Error('Synthetic offline write');});
+  ui.d.getElementById('question').value = 'Retain this draft'; ui.d.querySelector('.session-actions-trigger').click(); ui.d.getElementById('menu-pin').click();
+  await until(() => !ui.d.getElementById('send').disabled && ui.d.getElementById('error').textContent.length > 0);
+  assert.equal(ui.d.querySelector('.pinned-mark'), null); assert.equal(ui.d.getElementById('question').value, 'Retain this draft');
+  assert((await h.request('/api/sessions')).data.sessions.every(s => s.pinned === false));
 });

@@ -3,7 +3,7 @@ import {createAuthenticator, mutationGuard} from './auth.js';
 import {activeSnapshot, createKnowledgeSync, search} from './knowledge.js';
 import {modelConfiguration} from './model.js';
 import {sendMessage} from './chat.js';
-import {candidateView, sessionTitle, validatedTitle} from './session-view.js';
+import {candidateView, sessionPinned, sessionTitle, validatedSessionPatch} from './session-view.js';
 
 export function createApplication({fetchImpl = fetch, renderWorkbench = null} = {}) {
   const authenticate = createAuthenticator(fetchImpl), synchronize = createKnowledgeSync(fetchImpl);
@@ -44,8 +44,8 @@ export function createApplication({fetchImpl = fetch, renderWorkbench = null} = 
       if (pathname === '/api/sessions' && method === 'GET') {
         const offset = Number(searchParams.get('offset') || 0);
         requireValue(Number.isSafeInteger(offset) && offset >= 0 && offset <= 10000, 400, 'invalid_offset');
-        const rows = (await db.prepare("SELECT s.id,s.status,s.created_at,s.updated_at,s.reading_context_json,s.summary_json,(SELECT body FROM messages WHERE session_id=s.id AND role='user' ORDER BY sequence LIMIT 1) AS first_question FROM sessions s WHERE s.owner_id=? ORDER BY s.updated_at DESC,s.id LIMIT 51 OFFSET ?").bind(owner, offset).all()).results;
-        return json({sessions: rows.slice(0, 50).map(({summary_json, first_question, ...s}) => ({...s, title: sessionTitle({summary_json}, first_question || '')})), next_offset: rows.length > 50 ? offset + 50 : null});
+        const rows = (await db.prepare("SELECT s.id,s.status,s.created_at,s.updated_at,s.reading_context_json,s.summary_json,CASE WHEN json_type(s.summary_json,'$.pinned')='true' THEN 1 ELSE 0 END AS pinned,(SELECT body FROM messages WHERE session_id=s.id AND role='user' ORDER BY sequence LIMIT 1) AS first_question FROM sessions s WHERE s.owner_id=? ORDER BY pinned DESC,s.updated_at DESC,s.id LIMIT 51 OFFSET ?").bind(owner, offset).all()).results;
+        return json({sessions: rows.slice(0, 50).map(({summary_json, first_question, ...s}) => ({...s, pinned: !!s.pinned, title: sessionTitle({summary_json}, first_question || '')})), next_offset: rows.length > 50 ? offset + 50 : null});
       }
       if (pathname === '/api/sessions' && method === 'POST') {
         const body = await readJSONRequest(request); requireValue(record(body) && Object.keys(body).length === 0, 400, 'empty_body_required');
@@ -66,16 +66,16 @@ export function createApplication({fetchImpl = fetch, renderWorkbench = null} = 
           const requests = (await db.prepare('SELECT id,status,error_code,updated_at FROM runtime_requests WHERE session_id=? AND owner_id=? ORDER BY created_at').bind(id, owner).all()).results;
           const sources = action === 'export' ? (await db.prepare('SELECT DISTINCT s.* FROM source_records s JOIN candidate_sources c ON c.source_id=s.id JOIN knowledge_candidates k ON k.id=c.candidate_id WHERE k.session_id=? AND s.owner_id=?').bind(id, owner).all()).results : undefined;
           const snapshot = await activeSnapshot(db);
-          return json({schema_version: 1, session: {...session, title: sessionTitle(session, messages.find(m => m.role === 'user')?.body || '')}, messages,
+          return json({schema_version: 1, session: {...session, pinned: sessionPinned(session), title: sessionTitle(session, messages.find(m => m.role === 'user')?.body || '')}, messages,
             candidates: candidates.map(c => candidateView(c, snapshot)), requests, ...(sources ? {sources} : {})}, 200,
             action === 'export' ? {'Content-Disposition': 'attachment; filename="atlas-session-' + id + '.json"'} : {});
         }
         if (method === 'PATCH' && !action) {
-          const title = validatedTitle(await readJSONRequest(request));
-          const renamed = await db.prepare("UPDATE sessions SET summary_json=json_set(CASE WHEN json_type(summary_json)='object' THEN summary_json ELSE '{}' END,'$.title',?),updated_at=? WHERE id=? AND owner_id=? RETURNING id")
-            .bind(title, epoch(), id, owner).first();
-          requireValue(renamed, 404, 'session_not_found');
-          return json({id, title});
+          const patch = validatedSessionPatch(await readJSONRequest(request));
+          const saved = await db.prepare("UPDATE sessions SET summary_json=json_patch(CASE WHEN json_type(summary_json)='object' THEN summary_json ELSE '{}' END,?),updated_at=? WHERE id=? AND owner_id=? RETURNING summary_json")
+            .bind(JSON.stringify(patch), epoch(), id, owner).first();
+          requireValue(saved, 404, 'session_not_found');
+          return json({id, ...patch, pinned: sessionPinned(saved)});
         }
         if (method === 'DELETE' && !action) {
           requireValue(!session.active_request_id || session.lease_until <= epoch(), 409, 'session_busy');

@@ -151,10 +151,11 @@ svg {
 .new-session:hover:not(:disabled) {
   background:var(--line)
 }
-.section-label {
+.session-group-label {
   font-size:12px;
   color:var(--muted);
-  margin:0 24px 8px;
+  margin:20px 12px 7px;
+  font-weight:500;
   letter-spacing:.06em
 }
 .session-list {
@@ -164,11 +165,14 @@ svg {
   min-height:0
 }
 .session-item {
-  display:block;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:42px;
   width:100%;
   text-align:left;
   margin:0;
-  padding:11px 12px;
+  padding:9px 12px;
   overflow:hidden
 }
 .session-row {
@@ -184,7 +188,7 @@ svg {
   min-width:0;
   flex:1
 }
-.session-delete {
+.session-actions-trigger {
   color:var(--muted);
   opacity:0;
   width:34px;
@@ -192,17 +196,16 @@ svg {
   padding:9px;
   margin-right:3px
 }
-.session-row:hover .session-delete,.session-row:focus-within .session-delete {
+.session-row:hover .session-actions-trigger,.session-row:focus-within .session-actions-trigger,.session-actions-trigger[aria-expanded=true] {
   opacity:1
 }
-.session-delete:hover:not(:disabled) {
-  color:#b23b45
-}
-:root[data-theme=dark] .session-delete:hover:not(:disabled) {
-  color:#f3a4ac
+.session-actions-trigger:hover:not(:disabled) {
+  color:var(--ink)
 }
 @media(hover:none) {
-  .session-delete {opacity:1}
+  .session-actions-trigger {
+    opacity:1
+  }
 }
 .delete-name {
   font-size:15px;
@@ -222,7 +225,67 @@ svg {
 .destructive:hover:not(:disabled) {
   background:#96313b
 }
+.session-group-label:first-child {
+  margin-top:0
+}
+.pinned-mark {
+  flex:none;
+  color:var(--muted)
+}
+.pinned-mark svg {
+  width:14px;
+  height:14px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round
+}
+.session-menu {
+  position:fixed;
+  z-index:50;
+  width:184px;
+  padding:6px;
+  background:var(--paper);
+  border:1px solid var(--line);
+  border-radius:12px;
+  box-shadow:0 8px 30px #102b3826
+}
+.session-menu button {
+  display:flex;
+  align-items:center;
+  gap:11px;
+  width:100%;
+  min-height:40px;
+  padding:9px 11px;
+  text-align:left;
+  border-radius:7px;
+  font-size:14px
+}
+.session-menu svg {
+  width:18px;
+  height:18px;
+  flex:none;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round
+}
+.menu-divider {
+  height:1px;
+  background:var(--line);
+  margin:5px 5px
+}
+.session-menu .menu-delete {
+  color:#b23b45
+}
+:root[data-theme=dark] .session-menu .menu-delete {
+  color:#f3a4ac
+}
 .session-item strong {
+  min-width:0;
+  flex:1;
   font-size:14px;
   line-height:1.5;
   font-weight:450;
@@ -230,12 +293,6 @@ svg {
   overflow:hidden;
   text-overflow:ellipsis;
   display:block
-}
-.session-item small {
-  display:block;
-  font-size:12px;
-  color:var(--muted);
-  margin-top:3px
 }
 .session-item[aria-current=true] {
   background:var(--accent-soft)
@@ -683,12 +740,20 @@ textarea {
   animation:message-enter .22s ease-out
 }
 @keyframes orbit-tail-one {
-  from {stroke-dashoffset:8}
-  to {stroke-dashoffset:-92}
+  from {
+    stroke-dashoffset:8
+  }
+  to {
+    stroke-dashoffset:-92
+  }
 }
 @keyframes orbit-tail-two {
-  from {stroke-dashoffset:16}
-  to {stroke-dashoffset:-84}
+  from {
+    stroke-dashoffset:16
+  }
+  to {
+    stroke-dashoffset:-84
+  }
 }
 @keyframes message-enter {
   from {
@@ -922,7 +987,9 @@ textarea {
   }
 }
 @media(max-width:760px) {
-  .session-delete {opacity:1}
+  .session-actions-trigger {
+    opacity:1
+  }
   .app,.app.history-closed,.app.candidates-closed,.app.history-closed.candidates-closed {
     display:flex
   }

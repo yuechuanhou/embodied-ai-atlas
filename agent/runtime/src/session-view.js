@@ -17,6 +17,23 @@ export function validatedTitle(body) {
   return title;
 }
 
+export function sessionPinned(session) {
+  const summary = session.summary_json ? JSON.parse(session.summary_json) : null;
+  return record(summary) ? summary.pinned === true : false;
+}
+
+export function validatedSessionPatch(body) {
+  requireValue(record(body) && Object.keys(body).length > 0 &&
+    Object.keys(body).every(key => ['title', 'pinned'].includes(key)), 400, 'invalid_session_patch');
+  const patch = {};
+  if (Object.hasOwn(body, 'title')) patch.title = validatedTitle({title: body.title});
+  if (Object.hasOwn(body, 'pinned')) {
+    requireValue(typeof body.pinned === 'boolean', 400, 'invalid_session_patch');
+    patch.pinned = body.pinned;
+  }
+  return patch;
+}
+
 export function candidateView(candidate, snapshot) {
   const placement = JSON.parse(candidate.placement_json);
   const article = snapshot?.articles.find(a => a.id === placement.article_id);

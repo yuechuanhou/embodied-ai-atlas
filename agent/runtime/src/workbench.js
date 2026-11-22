@@ -11,6 +11,8 @@ const icons = {
   sync: '<path d="M20 7v5h-5M4 17v-5h5M19 12a7 7 0 0 0-12-5l-3 3m1 2a7 7 0 0 0 12 5l3-3"/>',
   export: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/>',
   trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/>',
+  more: '<circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/>',
+  pin: '<path d="m9 3 8 2-2 6 3 4-1 1-6-2-5 1 2-5 1-7ZM11 14l-4 7"/>',
 };
 const icon = name => '<svg viewBox="0 0 24 24" aria-hidden="true">' + icons[name] + '</svg>';
 const button = (id, name, label, extra = '') => `<button id="${id}" type="button" class="icon-button ${extra}" aria-label="${label}" title="${label}">${icon(name)}</button>`;
@@ -24,7 +26,8 @@ export function renderWorkbench(nonce) {
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><title>Atlas · 私人工作台</title><style>${baseCSS}${style}</style></head><body>
 <div class="app candidates-closed" id="app">
   <aside class="history" id="history-panel" aria-label="会话历史"><div class="panel-header"><div class="identity">${mark}<div><strong>Atlas</strong><small>私人学习工作台</small></div></div>${button('close-history', 'close', '收起会话列表', 'mobile-close')}</div>
-    <button id="new-session" class="new-session" type="button">＋ 新对话</button><p class="section-label">最近对话</p><nav id="sessions" class="session-list" aria-label="选择会话"></nav><button id="more" hidden type="button">加载更多</button>
+    <button id="new-session" class="new-session" type="button">＋ 新对话</button><nav id="sessions" class="session-list" aria-label="选择会话"></nav><button id="more" hidden type="button">加载更多</button>
+    <div id="session-menu" class="session-menu" role="menu" aria-label="对话操作" hidden><button id="menu-pin" type="button" role="menuitem">${icon('pin')}<span id="menu-pin-label">置顶</span></button><button id="menu-rename" type="button" role="menuitem">${icon('edit')}<span>重命名</span></button><div class="menu-divider" role="separator"></div><button id="menu-delete" class="menu-delete" type="button" role="menuitem">${icon('trash')}<span>删除</span></button></div>
     <div class="sidebar-footer"><button id="refresh" type="button">${icon('sync')}同步知识内容</button><button id="export" type="button">${icon('export')}导出当前会话</button><button id="delete-session" type="button" class="danger">${icon('trash')}删除当前会话</button></div>
   </aside>
   <main class="private-chat" id="chat-panel"><header class="chat-header">${button('toggle-history', 'panel', '展开或收起会话列表')}<div class="title-group"><div class="title-line"><h1 id="conversation-title">新对话</h1>${button('rename', 'edit', '修改对话名称')}</div><div id="status" class="status-line" role="status">正在核验私人环境…</div></div><div class="header-tools">${button('theme', 'theme', '切换深浅主题')}<button id="toggle-candidates" class="candidate-toggle" type="button" aria-controls="candidate-panel" aria-expanded="false">知识候选 <span id="candidate-count" class="count">0</span></button></div></header>
@@ -37,7 +40,7 @@ export function renderWorkbench(nonce) {
 </div>
 <dialog id="rename-dialog" class="dialog" aria-labelledby="rename-heading"><form id="rename-form"><h2 id="rename-heading">修改对话名称</h2><label for="session-title">对话名称</label><input id="session-title" name="title" maxlength="160" autocomplete="off" required><p id="rename-error" class="dialog-error" role="alert"></p><div class="dialog-actions"><button id="rename-cancel" type="button">取消</button><button id="rename-save" class="send" type="submit">保存</button></div></form></dialog>
 <dialog id="delete-dialog" class="dialog delete-dialog" aria-labelledby="delete-heading" aria-describedby="delete-name delete-scope"><h2 id="delete-heading">删除这条对话？</h2><p id="delete-name" class="delete-name"></p><div id="delete-scope"><p>对话消息和关联的未入库候选会从当前数据库中删除，无法在工作台恢复。</p><p>已发布的知识、独立审计和用量记录会保留。需要保留的内容请先导出。</p></div><p id="delete-error" class="dialog-error" role="alert"></p><div class="dialog-actions"><button id="delete-cancel" type="button">取消</button><button id="delete-confirm" class="destructive" type="button">删除对话</button></div></dialog>
-<template id="delete-icon">${icon('trash')}</template>
+<template id="more-icon">${icon('more')}</template><template id="pin-icon">${icon('pin')}</template>
 <template id="avatar">${mark}</template><div id="announcer" class="visually-hidden" role="status" aria-live="polite"></div>
 <script nonce="${nonce}">${clientSource.replace(/<\/(script|body|html|head)/gi, '<\\/$1')}</script></body></html>`;
 }
