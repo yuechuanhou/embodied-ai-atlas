@@ -27,10 +27,12 @@ not durable publishing Workflows. Retention and cloud recovery still need real s
 | `knowledge_snapshots` | Imported retrieval snapshot metadata, at most one active |
 
 Session presentation names use the optional `sessions.summary_json.title` key (1–80
-Unicode code points after whitespace normalization). A rename uses `json_set`, keeps
+Unicode code points after whitespace normalization). A metadata update uses `json_patch`, keeps
 other object keys, and replaces non-object legacy summary values with an object.
 Missing titles are derived from the first user message at read time. This metadata
-is not used as model memory; future context summaries must preserve the `title` key.
+is not used as model memory; future context summaries must preserve the `title` and
+`pinned` keys. The optional `summary_json.pinned` is a strict boolean; missing or
+legacy non-boolean values count as unpinned. Sorting and pagination prioritize pins.
 No schema migration or production database reset is needed for this addition.
 
 Splitting proposal identity from versions prevents approved history being overwritten.

@@ -5,6 +5,8 @@ const node = (tag, text = '', cls = '') => {const el = document.createElement(ta
 let active = null, activeTitle = '新对话', offset = 0, sessions = [], busy = false, ready = false, context = {}, retry = null, loadToken = 0;
 let drawer = null, drawerReturn = null;
 let deleting = false, deleteTarget = null, deleteReturn = null;
+let savingSession = false, renameTarget = null, renameReturn = null, menuTarget = null, menuTrigger = null;
+let listToken = 0;
 const hints = {authentication_required: '请重新登录私人工作台。', invalid_identity: '登录已失效，请刷新并重新登录。', owner_required: '此工作台仅允许 Owner 使用。',
   knowledge_not_ready: '知识快照尚未就绪，请同步内容后再试。', daily_model_budget_exceeded: '已达到今天配置的模型调用上限。', model_request_incomplete: '模型请求未完成；请先核对结果，避免重复提交。',
   model_output_truncated: '模型输出达到上限，本次回答和草稿未保存。请核对结果；重新发起会再次调用模型。',
@@ -22,12 +24,14 @@ const report = error => {get('error').textContent = hints[error.message] || '操
 const handle = fn => async event => {try {await fn(event);} catch (error) {report(error);}};
 const announce = text => {get('announcer').textContent = text;};
 function controls() {
-  const locked = busy || deleting;
+  const locked = busy || deleting || savingSession;
+  if (locked) closeSessionMenu(false);
   get('send').disabled = !ready || locked;
+  get('more').disabled = !ready || locked;
   for (const id of ['new-session', 'rename', 'delete-session']) get(id).disabled = !ready || locked || (id !== 'new-session' && !active);
   get('export').disabled = !active || deleting;
   for (const item of get('sessions').querySelectorAll('button')) item.disabled = locked;
-  get('composer-hint').textContent = deleting ? '正在删除对话…' : busy ? '回答生成中，可以先写下一条问题' : 'Enter 发送 · Shift + Enter 换行';
+  get('composer-hint').textContent = deleting ? '正在删除对话…' : savingSession ? '正在保存对话设置…' : busy ? '回答生成中，可以先写下一条问题' : 'Enter 发送 · Shift + Enter 换行';
 }
 function title(text) {activeTitle = text; get('conversation-title').textContent = text; document.title = text + ' · Atlas';}
 function scrollBottom() {const el = get('chat-scroll'); el.scrollTop = el.scrollHeight;}
@@ -90,27 +94,39 @@ async function status() {
   if (sync.repo_head && sync.published_revision && sync.repo_head !== sync.published_revision) get('status').textContent += ' · 线上版本待更新';
 }
 async function list(more = false) {
+  const token = ++listToken;
   const data = await api('/api/sessions?offset=' + (more ? offset : 0));
-  sessions = more ? [...sessions, ...data.sessions] : data.sessions; offset = data.next_offset;
+  if (token !== listToken) return;
+  sessions = more ? [...new Map([...sessions, ...data.sessions].map(s => [s.id, s])).values()] : data.sessions; offset = data.next_offset;
   renderSessions();
 }
 function renderSessions() {
+  closeSessionMenu(false);
   get('sessions').replaceChildren(); get('more').hidden = offset === null;
-  for (const session of sessions) {
-    const button = node('button', '', 'session-item'); button.type = 'button'; button.append(node('strong', session.title), node('small', new Date(session.updated_at * 1000).toLocaleDateString()));
+  const ordered = [...sessions.filter(s => s.pinned), ...sessions.filter(s => !s.pinned)];
+  let group = null;
+  for (const session of ordered) {
+    const label = session.pinned ? '置顶' : '最近对话';
+    if (label !== group) {get('sessions').append(node('h2', label, 'session-group-label')); group = label;}
+    const button = node('button', '', 'session-item'); button.type = 'button';
+    if (session.pinned) {const pin = node('span', '', 'pinned-mark'); pin.setAttribute('aria-hidden', 'true'); pin.append(get('pin-icon').content.cloneNode(true)); button.append(pin);}
+    button.append(node('strong', session.title));
+    button.setAttribute('aria-label', session.title + (session.pinned ? '，已置顶' : ''));
     button.dataset.sessionId = session.id; button.title = session.title; button.setAttribute('aria-current', String(session.id === active));
     button.onclick = handle(async () => {await load(session.id); if (innerWidth <= 760) setPanel('history', false);});
-    const row = node('div', '', 'session-row'), remove = node('button', '', 'session-delete icon-button');
-    remove.type = 'button'; remove.dataset.sessionId = session.id;
-    remove.setAttribute('aria-label', '删除对话：' + session.title); remove.title = '删除对话';
-    remove.append(get('delete-icon').content.cloneNode(true));
-    remove.onclick = () => askDelete(session.id, session.title, remove);
-    row.append(button, remove); get('sessions').append(row);
+    const row = node('div', '', 'session-row'), trigger = node('button', '', 'session-actions-trigger icon-button');
+    trigger.type = 'button'; trigger.dataset.sessionId = session.id;
+    trigger.setAttribute('aria-label', '对话操作：' + session.title); trigger.title = '对话操作';
+    trigger.setAttribute('aria-haspopup', 'menu'); trigger.setAttribute('aria-expanded', 'false'); trigger.setAttribute('aria-controls', 'session-menu');
+    trigger.append(get('more-icon').content.cloneNode(true));
+    trigger.onclick = () => openSessionMenu(session, trigger);
+    row.append(button, trigger); get('sessions').append(row);
   }
   controls();
 }
 async function load(id, duringSend = false) {
-  if ((busy || deleting) && !duringSend) return;
+  if ((busy || deleting || savingSession) && !duringSend) return;
+  closeSessionMenu(false);
   const token = ++loadToken, data = await api('/api/sessions/' + id);
   if (token !== loadToken) return;
   active = id; title(data.session.title); get('messages').replaceChildren(); get('error').textContent = ''; get('empty-state').hidden = !!data.messages.length;
@@ -136,7 +152,7 @@ async function load(id, duringSend = false) {
 function autosize() {const input = get('question'); input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight || 52, 160) + 'px';}
 get('question').addEventListener('input', autosize);
 get('form').onsubmit = handle(async event => {
-  event.preventDefault(); const message = get('question').value.trim(); if (!message || busy || deleting || !ready) return;
+  event.preventDefault(); const message = get('question').value.trim(); if (!message || busy || deleting || savingSession || !ready) return;
   if (retry?.session === active && retry.message !== message) {
     report(new Error('request_in_progress')); get('check-result').hidden = false; return;
   }
@@ -176,7 +192,7 @@ function clearConversation() {
   for (const button of get('sessions').querySelectorAll('.session-item')) button.setAttribute('aria-current', 'false'); controls();
 }
 get('new-session').onclick = () => {
-  if (busy || deleting) return; clearConversation();
+  if (busy || deleting || savingSession) return; closeSessionMenu(false); clearConversation();
   if (innerWidth <= 760) setPanel('history', false); get('question').focus();
 };
 get('more').onclick = handle(() => list(true));
@@ -194,7 +210,8 @@ get('export').onclick = handle(async () => {
   link.href = url; link.download = 'atlas-session-' + active + '.json'; link.click(); URL.revokeObjectURL(url);
 });
 function askDelete(id, name, opener) {
-  if (!id || !ready || busy || deleting) return;
+  if (!id || !ready || busy || deleting || savingSession) return;
+  closeSessionMenu(false);
   deleteTarget = id; deleteReturn = opener;
   get('delete-name').textContent = name; get('delete-error').textContent = '';
   get('delete-dialog').showModal(); get('delete-cancel').focus();
@@ -208,7 +225,7 @@ get('delete-dialog').addEventListener('close', () => {
 });
 get('delete-confirm').onclick = async () => {
   if (!deleteTarget || busy || deleting) return;
-  const id = deleteTarget; deleting = true; ++loadToken; controls();
+  const id = deleteTarget; deleting = true; ++loadToken; ++listToken; controls();
   get('delete-confirm').disabled = true; get('delete-cancel').disabled = true; get('delete-confirm').textContent = '正在删除…';
   get('delete-error').textContent = '';
   try {
@@ -224,20 +241,76 @@ get('delete-confirm').onclick = async () => {
     deleting = false; controls(); get('delete-confirm').disabled = false; get('delete-cancel').disabled = false; get('delete-confirm').textContent = '删除对话';
   }
 };
-get('rename').onclick = () => {
-  if (!active || busy || deleting) return; get('session-title').value = activeTitle; get('rename-error').textContent = '';
+function askRename(id, name, opener) {
+  if (!id || !ready || busy || deleting || savingSession) return;
+  closeSessionMenu(false); renameTarget = id; renameReturn = opener;
+  get('session-title').value = name; get('rename-error').textContent = '';
   get('rename-dialog').showModal(); get('session-title').focus(); get('session-title').select();
-};
-get('rename-cancel').onclick = () => get('rename-dialog').close();
+}
+get('rename').onclick = () => askRename(active, activeTitle, get('rename'));
+get('rename-cancel').onclick = () => {if (!savingSession) get('rename-dialog').close();};
+get('rename-dialog').addEventListener('cancel', event => {if (savingSession) event.preventDefault();});
 get('rename-form').onsubmit = async event => {
-  event.preventDefault(); const value = get('session-title').value.trim();
+  event.preventDefault(); if (!renameTarget || savingSession) return;
+  const id = renameTarget, value = get('session-title').value.trim();
   if (!value || Array.from(value).length > 80 || /[\u0000-\u001f\u007f]/u.test(value)) {get('rename-error').textContent = hints.invalid_session_title; return;}
-  get('rename-save').disabled = true;
-  try {const data = await api('/api/sessions/' + active, 'PATCH', {title: value}); title(data.title); await list(); get('rename-dialog').close(); announce('对话名称已保存。');}
+  savingSession = true; ++listToken; controls(); get('rename-save').disabled = true; get('rename-cancel').disabled = true;
+  try {
+    const data = await api('/api/sessions/' + id, 'PATCH', {title: value});
+    if (active === id) title(data.title);
+    const session = sessions.find(s => s.id === id); if (session) session.title = data.title;
+    renderSessions();
+    try {await list();} catch {get('error').textContent = '名称已保存，但列表刷新未完成，请刷新页面核对。';}
+    savingSession = false; controls(); get('rename-dialog').close(); announce('对话名称已保存。');
+  }
   catch (error) {get('rename-error').textContent = hints[error.message] || '名称未保存，请重试。';}
-  finally {get('rename-save').disabled = false;}
+  finally {savingSession = false; controls(); get('rename-save').disabled = false; get('rename-cancel').disabled = false;}
 };
-get('rename-dialog').addEventListener('close', () => get('rename').focus());
+get('rename-dialog').addEventListener('close', () => {
+  const id = renameTarget; renameTarget = null;
+  if (renameReturn?.isConnected && !renameReturn.disabled) renameReturn.focus(); else focusSessionActions(id);
+});
+
+function focusSessionActions(id) {
+  if (get('app').classList.contains('history-closed')) {get('toggle-history').focus(); return;}
+  const trigger = [...get('sessions').querySelectorAll('.session-actions-trigger')].find(el => el.dataset.sessionId === id);
+  (trigger || get('new-session')).focus();
+}
+function closeSessionMenu(restore = true) {
+  if (!menuTarget) return;
+  const trigger = menuTrigger; get('session-menu').hidden = true;
+  trigger?.setAttribute('aria-expanded', 'false'); menuTarget = null; menuTrigger = null;
+  if (restore && trigger?.isConnected) trigger.focus();
+}
+function openSessionMenu(session, trigger) {
+  if (busy || deleting || savingSession || !ready) return;
+  const same = menuTarget?.id === session.id; closeSessionMenu(false);
+  if (same) {trigger.focus(); return;}
+  menuTarget = session; menuTrigger = trigger; trigger.setAttribute('aria-expanded', 'true');
+  get('menu-pin-label').textContent = session.pinned ? '取消置顶' : '置顶';
+  const menu = get('session-menu'); menu.hidden = false;
+  const rect = trigger.getBoundingClientRect(), box = menu.getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(rect.right - box.width, innerWidth - box.width - 8)) + 'px';
+  menu.style.top = Math.max(8, rect.bottom + box.height + 8 <= innerHeight ? rect.bottom + 4 : rect.top - box.height - 4) + 'px';
+  get('menu-pin').focus();
+}
+get('menu-rename').onclick = () => {if (menuTarget) askRename(menuTarget.id, menuTarget.title, menuTrigger);};
+get('menu-delete').onclick = () => {if (menuTarget) askDelete(menuTarget.id, menuTarget.title, menuTrigger);};
+get('menu-pin').onclick = async () => {
+  if (!menuTarget || busy || deleting || savingSession) return;
+  const {id, pinned} = menuTarget; closeSessionMenu(false); savingSession = true; ++listToken; controls();
+  get('error').textContent = '';
+  try {
+    const data = await api('/api/sessions/' + id, 'PATCH', {pinned: !pinned});
+    const session = sessions.find(s => s.id === id); if (session) session.pinned = data.pinned;
+    renderSessions(); announce(data.pinned ? '对话已置顶。' : '已取消置顶。');
+    try {await list();} catch {get('error').textContent = '置顶设置已保存，但列表刷新未完成，请刷新页面核对。';}
+  } catch {get('error').textContent = '未能确认置顶状态，请刷新列表核对。';}
+  finally {savingSession = false; controls(); focusSessionActions(id);}
+};
+document.addEventListener('pointerdown', event => {if (menuTarget && !get('session-menu').contains(event.target) && !menuTrigger.contains(event.target)) closeSessionMenu(false);});
+document.addEventListener('focusin', event => {if (menuTarget && !get('session-menu').contains(event.target) && !menuTrigger.contains(event.target)) closeSessionMenu(false);});
+get('sessions').addEventListener('scroll', () => closeSessionMenu(false));
 get('theme').onclick = () => {const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = theme; try {localStorage.setItem('atlas-workbench-theme', theme);} catch {}};
 try {document.documentElement.dataset.theme = localStorage.getItem('atlas-workbench-theme') || (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');} catch {}
 function setPanel(kind, open) {
@@ -250,6 +323,7 @@ function setPanel(kind, open) {
   if (returnFocus) get('toggle-' + kind).focus();
 }
 function updatePanels() {
+  closeSessionMenu(false);
   if (innerWidth <= 1250 && !get('app').classList.contains('candidates-closed')) get('app').classList.add('history-closed');
   const historyOpen = !get('app').classList.contains('history-closed'), candidatesOpen = !get('app').classList.contains('candidates-closed');
   get('toggle-history').setAttribute('aria-controls', 'history-panel'); get('toggle-history').setAttribute('aria-expanded', String(historyOpen));
@@ -267,6 +341,16 @@ get('close-history').onclick = () => setPanel('history', false); get('close-cand
 get('scrim').onclick = () => {setPanel('history', false); setPanel('candidates', false);};
 document.addEventListener('keydown', event => {
   if (get('delete-dialog').open || get('rename-dialog').open) return;
+  if (menuTarget) {
+    const items = [...get('session-menu').querySelectorAll('[role=menuitem]')], index = items.indexOf(document.activeElement);
+    if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items[next].focus(); return;
+    }
+    if (event.key === 'Escape') {event.preventDefault(); closeSessionMenu(); return;}
+    if (event.key === 'Tab') {closeSessionMenu(); return;}
+  }
   if (!drawer) return;
   if (event.key === 'Escape') {event.preventDefault(); setPanel('history', false); setPanel('candidates', false);}
   if (event.key === 'Tab') {
