@@ -4,6 +4,7 @@ const get = id => document.getElementById(id);
 const node = (tag, text = '', cls = '') => {const el = document.createElement(tag); el.textContent = text; if (cls) el.className = cls; return el;};
 let active = null, activeTitle = '新对话', offset = 0, sessions = [], busy = false, ready = false, context = {}, retry = null, loadToken = 0;
 let drawer = null, drawerReturn = null;
+let deleting = false, deleteTarget = null, deleteReturn = null;
 const hints = {authentication_required: '请重新登录私人工作台。', invalid_identity: '登录已失效，请刷新并重新登录。', owner_required: '此工作台仅允许 Owner 使用。',
   knowledge_not_ready: '知识快照尚未就绪，请同步内容后再试。', daily_model_budget_exceeded: '已达到今天配置的模型调用上限。', model_request_incomplete: '模型请求未完成；请先核对结果，避免重复提交。',
   model_output_truncated: '模型输出达到上限，本次回答和草稿未保存。请核对结果；重新发起会再次调用模型。',
@@ -21,11 +22,12 @@ const report = error => {get('error').textContent = hints[error.message] || '操
 const handle = fn => async event => {try {await fn(event);} catch (error) {report(error);}};
 const announce = text => {get('announcer').textContent = text;};
 function controls() {
-  get('send').disabled = !ready || busy;
-  for (const id of ['new-session', 'rename', 'delete-session']) get(id).disabled = !ready || busy || (id !== 'new-session' && !active);
-  get('export').disabled = !active;
-  for (const item of get('sessions').querySelectorAll('button')) item.disabled = busy;
-  get('composer-hint').textContent = busy ? '回答生成中，可以先写下一条问题' : 'Enter 发送 · Shift + Enter 换行';
+  const locked = busy || deleting;
+  get('send').disabled = !ready || locked;
+  for (const id of ['new-session', 'rename', 'delete-session']) get(id).disabled = !ready || locked || (id !== 'new-session' && !active);
+  get('export').disabled = !active || deleting;
+  for (const item of get('sessions').querySelectorAll('button')) item.disabled = locked;
+  get('composer-hint').textContent = deleting ? '正在删除对话…' : busy ? '回答生成中，可以先写下一条问题' : 'Enter 发送 · Shift + Enter 换行';
 }
 function title(text) {activeTitle = text; get('conversation-title').textContent = text; document.title = text + ' · Atlas';}
 function scrollBottom() {const el = get('chat-scroll'); el.scrollTop = el.scrollHeight;}
@@ -90,16 +92,25 @@ async function status() {
 async function list(more = false) {
   const data = await api('/api/sessions?offset=' + (more ? offset : 0));
   sessions = more ? [...sessions, ...data.sessions] : data.sessions; offset = data.next_offset;
+  renderSessions();
+}
+function renderSessions() {
   get('sessions').replaceChildren(); get('more').hidden = offset === null;
   for (const session of sessions) {
     const button = node('button', '', 'session-item'); button.type = 'button'; button.append(node('strong', session.title), node('small', new Date(session.updated_at * 1000).toLocaleDateString()));
     button.dataset.sessionId = session.id; button.title = session.title; button.setAttribute('aria-current', String(session.id === active));
-    button.onclick = handle(async () => {await load(session.id); if (innerWidth <= 760) setPanel('history', false);}); get('sessions').append(button);
+    button.onclick = handle(async () => {await load(session.id); if (innerWidth <= 760) setPanel('history', false);});
+    const row = node('div', '', 'session-row'), remove = node('button', '', 'session-delete icon-button');
+    remove.type = 'button'; remove.dataset.sessionId = session.id;
+    remove.setAttribute('aria-label', '删除对话：' + session.title); remove.title = '删除对话';
+    remove.append(get('delete-icon').content.cloneNode(true));
+    remove.onclick = () => askDelete(session.id, session.title, remove);
+    row.append(button, remove); get('sessions').append(row);
   }
   controls();
 }
 async function load(id, duringSend = false) {
-  if (busy && !duringSend) return;
+  if ((busy || deleting) && !duringSend) return;
   const token = ++loadToken, data = await api('/api/sessions/' + id);
   if (token !== loadToken) return;
   active = id; title(data.session.title); get('messages').replaceChildren(); get('error').textContent = ''; get('empty-state').hidden = !!data.messages.length;
@@ -119,13 +130,13 @@ async function load(id, duringSend = false) {
     get('new-attempt').hidden = pending?.status !== 'failed' || busy;
     if (pending && !busy) report(new Error(pending.error_code || 'request_in_progress'));
   }
-  for (const button of get('sessions').querySelectorAll('button')) button.setAttribute('aria-current', String(button.dataset.sessionId === active));
+  for (const button of get('sessions').querySelectorAll('.session-item')) button.setAttribute('aria-current', String(button.dataset.sessionId === active));
   controls(); scrollBottom(); return data;
 }
 function autosize() {const input = get('question'); input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight || 52, 160) + 'px';}
 get('question').addEventListener('input', autosize);
 get('form').onsubmit = handle(async event => {
-  event.preventDefault(); const message = get('question').value.trim(); if (!message || busy || !ready) return;
+  event.preventDefault(); const message = get('question').value.trim(); if (!message || busy || deleting || !ready) return;
   if (retry?.session === active && retry.message !== message) {
     report(new Error('request_in_progress')); get('check-result').hidden = false; return;
   }
@@ -159,12 +170,15 @@ get('form').onsubmit = handle(async event => {
   }
 });
 get('question').onkeydown = event => {if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {event.preventDefault(); get('form').requestSubmit();}};
-get('new-session').onclick = handle(async () => {
-  if (busy) return; ++loadToken; active = null; retry = null; title('新对话'); get('messages').replaceChildren(); candidates([]); get('empty-state').hidden = false;
+function clearConversation() {
+  ++loadToken; active = null; retry = null; title('新对话'); get('messages').replaceChildren(); candidates([]); get('empty-state').hidden = false;
   get('question').value = ''; autosize(); get('error').textContent = ''; get('check-result').hidden = true; get('new-attempt').hidden = true;
-  for (const button of get('sessions').querySelectorAll('button')) button.setAttribute('aria-current', 'false'); controls();
+  for (const button of get('sessions').querySelectorAll('.session-item')) button.setAttribute('aria-current', 'false'); controls();
+}
+get('new-session').onclick = () => {
+  if (busy || deleting) return; clearConversation();
   if (innerWidth <= 760) setPanel('history', false); get('question').focus();
-});
+};
 get('more').onclick = handle(() => list(true));
 get('check-result').onclick = handle(async () => {if (active) await load(active);});
 get('new-attempt').onclick = () => {
@@ -179,12 +193,39 @@ get('export').onclick = handle(async () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'})), link = node('a');
   link.href = url; link.download = 'atlas-session-' + active + '.json'; link.click(); URL.revokeObjectURL(url);
 });
-get('delete-session').onclick = handle(async () => {
-  if (!active || busy || !confirm('删除当前会话、消息和未入库候选？独立提案审计与来源元数据会保留。')) return;
-  const id = active; await api('/api/sessions/' + id, 'DELETE'); get('new-session').click(); await list(); announce('会话已删除。');
+function askDelete(id, name, opener) {
+  if (!id || !ready || busy || deleting) return;
+  deleteTarget = id; deleteReturn = opener;
+  get('delete-name').textContent = name; get('delete-error').textContent = '';
+  get('delete-dialog').showModal(); get('delete-cancel').focus();
+}
+get('delete-session').onclick = () => askDelete(active, activeTitle, get('delete-session'));
+get('delete-cancel').onclick = () => {if (!deleting) get('delete-dialog').close();};
+get('delete-dialog').addEventListener('cancel', event => {if (deleting) event.preventDefault();});
+get('delete-dialog').addEventListener('close', () => {
+  deleteTarget = null;
+  if (deleteReturn?.isConnected && !deleteReturn.disabled) deleteReturn.focus(); else get('new-session').focus();
 });
+get('delete-confirm').onclick = async () => {
+  if (!deleteTarget || busy || deleting) return;
+  const id = deleteTarget; deleting = true; ++loadToken; controls();
+  get('delete-confirm').disabled = true; get('delete-cancel').disabled = true; get('delete-confirm').textContent = '正在删除…';
+  get('delete-error').textContent = '';
+  try {
+    await api('/api/sessions/' + id, 'DELETE');
+    sessions = sessions.filter(session => session.id !== id);
+    if (active === id) clearConversation();
+    renderSessions();
+    deleting = false; controls(); get('delete-dialog').close(); announce('对话及关联的未入库候选已删除。');
+    try {await list();} catch {get('error').textContent = '对话已删除，但列表刷新未完成，请刷新页面核对。';}
+  } catch (error) {
+    get('delete-error').textContent = error.message === 'session_busy' ? '这条对话仍在处理中，请等请求结束后再删除。' : '删除结果尚未确认，请刷新页面核对后再操作。';
+  } finally {
+    deleting = false; controls(); get('delete-confirm').disabled = false; get('delete-cancel').disabled = false; get('delete-confirm').textContent = '删除对话';
+  }
+};
 get('rename').onclick = () => {
-  if (!active || busy) return; get('session-title').value = activeTitle; get('rename-error').textContent = '';
+  if (!active || busy || deleting) return; get('session-title').value = activeTitle; get('rename-error').textContent = '';
   get('rename-dialog').showModal(); get('session-title').focus(); get('session-title').select();
 };
 get('rename-cancel').onclick = () => get('rename-dialog').close();
@@ -225,6 +266,7 @@ get('toggle-candidates').onclick = () => setPanel('candidates', get('app').class
 get('close-history').onclick = () => setPanel('history', false); get('close-candidates').onclick = () => setPanel('candidates', false);
 get('scrim').onclick = () => {setPanel('history', false); setPanel('candidates', false);};
 document.addEventListener('keydown', event => {
+  if (get('delete-dialog').open || get('rename-dialog').open) return;
   if (!drawer) return;
   if (event.key === 'Escape') {event.preventDefault(); setPanel('history', false); setPanel('candidates', false);}
   if (event.key === 'Tab') {

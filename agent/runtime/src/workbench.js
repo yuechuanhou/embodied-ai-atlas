@@ -36,6 +36,8 @@ export function renderWorkbench(nonce) {
   <button id="scrim" class="scrim" type="button" aria-label="关闭侧栏" tabindex="-1"></button>
 </div>
 <dialog id="rename-dialog" class="dialog" aria-labelledby="rename-heading"><form id="rename-form"><h2 id="rename-heading">修改对话名称</h2><label for="session-title">对话名称</label><input id="session-title" name="title" maxlength="160" autocomplete="off" required><p id="rename-error" class="dialog-error" role="alert"></p><div class="dialog-actions"><button id="rename-cancel" type="button">取消</button><button id="rename-save" class="send" type="submit">保存</button></div></form></dialog>
+<dialog id="delete-dialog" class="dialog delete-dialog" aria-labelledby="delete-heading" aria-describedby="delete-name delete-scope"><h2 id="delete-heading">删除这条对话？</h2><p id="delete-name" class="delete-name"></p><div id="delete-scope"><p>对话消息和关联的未入库候选会从当前数据库中删除，无法在工作台恢复。</p><p>已发布的知识、独立审计和用量记录会保留。需要保留的内容请先导出。</p></div><p id="delete-error" class="dialog-error" role="alert"></p><div class="dialog-actions"><button id="delete-cancel" type="button">取消</button><button id="delete-confirm" class="destructive" type="button">删除对话</button></div></dialog>
+<template id="delete-icon">${icon('trash')}</template>
 <template id="avatar">${mark}</template><div id="announcer" class="visually-hidden" role="status" aria-live="polite"></div>
 <script nonce="${nonce}">${clientSource.replace(/<\/(script|body|html|head)/gi, '<\\/$1')}</script></body></html>`;
 }

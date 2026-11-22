@@ -167,9 +167,60 @@ svg {
   display:block;
   width:100%;
   text-align:left;
-  margin:3px 0;
+  margin:0;
   padding:11px 12px;
   overflow:hidden
+}
+.session-row {
+  display:flex;
+  align-items:center;
+  border-radius:9px;
+  margin:3px 0
+}
+.session-row:has(.session-item[aria-current=true]) {
+  background:var(--accent-soft)
+}
+.session-row .session-item {
+  min-width:0;
+  flex:1
+}
+.session-delete {
+  color:var(--muted);
+  opacity:0;
+  width:34px;
+  height:38px;
+  padding:9px;
+  margin-right:3px
+}
+.session-row:hover .session-delete,.session-row:focus-within .session-delete {
+  opacity:1
+}
+.session-delete:hover:not(:disabled) {
+  color:#b23b45
+}
+:root[data-theme=dark] .session-delete:hover:not(:disabled) {
+  color:#f3a4ac
+}
+@media(hover:none) {
+  .session-delete {opacity:1}
+}
+.delete-name {
+  font-size:15px;
+  font-weight:600;
+  overflow-wrap:anywhere
+}
+#delete-scope {
+  color:var(--muted);
+  font-size:14px;
+  line-height:1.8
+}
+.destructive {
+  background:#b23b45;
+  color:#fff;
+  padding:10px 15px
+}
+.destructive:hover:not(:disabled) {
+  background:#96313b
 }
 .session-item strong {
   font-size:14px;
@@ -871,6 +922,7 @@ textarea {
   }
 }
 @media(max-width:760px) {
+  .session-delete {opacity:1}
   .app,.app.history-closed,.app.candidates-closed,.app.history-closed.candidates-closed {
     display:flex
   }
