@@ -26,6 +26,13 @@ not durable publishing Workflows. Retention and cloud recovery still need real s
 | `jobs` | Durable execution pointers, idempotency and publication milestones |
 | `knowledge_snapshots` | Imported retrieval snapshot metadata, at most one active |
 
+Session presentation names use the optional `sessions.summary_json.title` key (1–80
+Unicode code points after whitespace normalization). A rename uses `json_set`, keeps
+other object keys, and replaces non-object legacy summary values with an object.
+Missing titles are derived from the first user message at read time. This metadata
+is not used as model memory; future context summaries must preserve the `title` key.
+No schema migration or production database reset is needed for this addition.
+
 Splitting proposal identity from versions prevents approved history being overwritten.
 Composite foreign keys keep related Owner-scoped records consistent. This is not a
 multiuser product or row-level authorization implementation: every service query must
