@@ -111,3 +111,57 @@ test('failed session creation restores a submitted question and exposes a recove
   await until(() => !ui.d.getElementById('send').disabled && ui.d.getElementById('error').textContent.length > 0);
   assert.equal(ui.d.getElementById('question').value, 'Do not lose this question'); assert.equal(h.world.modelCalls.length, 0);
 });
+
+async function seededConversations(t) {
+  const h = await harness(); t.after(h.dispose); await h.sync();
+  for (const message of ['UnknownPrivateAlpha', 'UnknownPrivateBeta']) {
+    const id = await h.session();
+    await h.request('/api/sessions/' + id + '/messages', {method: 'POST', body: {request_id: randomUUID(), message, reading_context: {}}});
+  }
+  return h;
+}
+
+test('per-conversation delete can cancel safely and deletes only the selected inactive conversation', async t => {
+  const h = await seededConversations(t); let calls = 0;
+  const ui = await open(t, h, (path, init) => {if (init.method === 'DELETE') calls++;});
+  const activeId = ui.d.querySelector('.session-item[aria-current=true]').dataset.sessionId;
+  const remove = [...ui.d.querySelectorAll('.session-delete')].find(el => el.dataset.sessionId !== activeId);
+  const removedId = remove.dataset.sessionId, before = ui.d.getElementById('messages').textContent;
+  ui.d.getElementById('question').value = 'Keep the active draft';
+  remove.click(); assert.equal(ui.d.getElementById('delete-dialog').open, true);
+  assert(ui.d.getElementById('delete-scope').textContent.includes('未入库候选')); assert.equal(ui.d.activeElement.id, 'delete-cancel');
+  ui.d.getElementById('delete-cancel').click(); assert.equal(calls, 0); assert.equal(ui.d.activeElement, remove);
+  assert.equal((await h.request('/api/sessions/' + removedId)).status, 200);
+  remove.click(); ui.d.getElementById('delete-confirm').click(); ui.d.getElementById('delete-confirm').click();
+  await until(() => !ui.d.getElementById('delete-dialog').open);
+  await until(() => ui.d.querySelectorAll('.session-row').length === 1);
+  assert.equal(calls, 1); assert.equal((await h.request('/api/sessions/' + removedId)).status, 404);
+  for (const table of ['messages', 'knowledge_candidates', 'runtime_requests']) assert.equal((await h.db.prepare('SELECT COUNT(*) n FROM ' + table + ' WHERE session_id=?').bind(removedId).first()).n, 0);
+  assert.equal((await h.request('/api/sessions/' + activeId)).status, 200);
+  assert.equal(ui.d.getElementById('messages').textContent, before); assert.equal(ui.d.getElementById('question').value, 'Keep the active draft');
+  assert.equal(ui.d.querySelector('.session-item[aria-current=true]').dataset.sessionId, activeId); assert.equal(h.world.modelCalls.length, 0);
+  const restored = await open(t, h); assert.equal(restored.d.querySelectorAll('.session-row').length, 1); assert.deepEqual(ui.errors, []);
+});
+
+test('deleting the current conversation clears its messages and candidates, retaining the other conversation', async t => {
+  const h = await seededConversations(t), ui = await open(t, h);
+  const activeId = ui.d.querySelector('.session-item[aria-current=true]').dataset.sessionId;
+  assert(ui.d.querySelector('.candidate'));
+  ui.d.getElementById('delete-session').click(); ui.d.getElementById('delete-confirm').click();
+  await until(() => !ui.d.getElementById('delete-dialog').open);
+  assert.equal(ui.d.getElementById('conversation-title').textContent, '新对话'); assert.equal(ui.d.querySelectorAll('.message').length, 0);
+  assert.equal(ui.d.querySelectorAll('.candidate').length, 0); assert.equal(ui.d.getElementById('empty-state').hidden, false);
+  assert.equal((await h.request('/api/sessions/' + activeId)).status, 404); assert.equal((await h.request('/api/sessions')).data.sessions.length, 1);
+  assert.equal(ui.d.getElementById('delete-session').disabled, true); assert.equal(ui.d.activeElement.id, 'new-session');
+});
+
+test('server rejection of deletion retains the conversation and candidate without pretending success', async t => {
+  const h = await seededConversations(t), ui = await open(t, h);
+  const id = ui.d.querySelector('.session-item[aria-current=true]').dataset.sessionId;
+  await h.db.prepare('UPDATE sessions SET active_request_id=?,lease_until=? WHERE id=?').bind(randomUUID(), Math.floor(Date.now()/1000) + 300, id).run();
+  ui.d.getElementById('delete-session').click(); ui.d.getElementById('delete-confirm').click();
+  await until(() => ui.d.getElementById('delete-error').textContent.length > 0);
+  assert.equal(ui.d.getElementById('delete-dialog').open, true); assert(ui.d.getElementById('delete-error').textContent.includes('仍在处理中'));
+  assert(ui.d.querySelector('.message')); assert(ui.d.querySelector('.candidate')); assert.equal((await h.request('/api/sessions/' + id)).status, 200);
+  assert.equal(ui.d.getElementById('delete-confirm').disabled, false); assert.equal(h.world.modelCalls.length, 0);
+});
