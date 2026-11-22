@@ -5,6 +5,7 @@
   "engines": {"node": ">=22.12.0"},
   "scripts": {
     "build": "WRANGLER_SEND_METRICS=false wrangler deploy --dry-run --config wrangler.jsonc --outdir ../../.preview/private-worker",
+    "build:stage": "node scripts/stage-worker.js --dry-run",
     "test": "node --test --test-concurrency=1 test/*.test.js"
   },
   "dependencies": {"jose": "6.2.18"},

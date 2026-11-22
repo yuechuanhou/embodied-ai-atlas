@@ -2,7 +2,7 @@
 
 本文件是待执行配置方案，**不是部署记录**。当前 PR 不创建账号、资源、DNS 记录，不设置 Secrets，也不合并 main。
 
-如果当前执行环境无法接收 OAuth 凭据，可以使用独立的 [GitHub D1 首次接入流程](GITHUB_SETUP.md)。它仅负责创建和初始化新存储，默认只读计划，凭据直接保存在受保护的 GitHub Environment；Access 和私人工作台仍按下文独立配置。该替代流程尚未使用真实凭据运行。
+如果当前执行环境无法接收 OAuth 凭据，可以使用独立的 [GitHub D1 首次接入流程](GITHUB_SETUP.md)。它仅负责创建和初始化新存储，默认只读计划，凭据直接保存在受保护的 GitHub Environment。2026-11-21 已通过真实 D1 创建与只读复核；后续使用 [关闭入口的 Worker 首次创建流程](WORKER_SETUP.md)，Access 和私人工作台仍按下文独立验收。
 
 ## 1. 账号接入前已准备好的内容
 
