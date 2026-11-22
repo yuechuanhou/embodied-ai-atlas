@@ -1,0 +1,35 @@
+name: Validate private Atlas runtime
+description: Install all test dependencies and build knowledge and Worker fixtures from a clean checkout
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: |
+          package-lock.json
+          agent/runtime/package-lock.json
+    - name: Install DOM test dependencies
+      shell: bash
+      run: npm ci --ignore-scripts
+    - name: Install knowledge index build dependencies
+      shell: bash
+      run: python -m pip install -r requirements-dev.txt
+    - name: Install private runtime dependencies
+      shell: bash
+      run: npm ci --ignore-scripts --prefix agent/runtime
+    - name: Build published knowledge fixtures
+      shell: bash
+      run: python build.py
+    - name: Build runtime fixture and exact staging configuration without deployment
+      shell: bash
+      run: |
+        npm run build --prefix agent/runtime
+        npm run build:stage --prefix agent/runtime
+    - name: Test Owner authentication, D1, synchronization and deployment boundaries
+      shell: bash
+      run: npm test --prefix agent/runtime

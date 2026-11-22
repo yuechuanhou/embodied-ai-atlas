@@ -57,11 +57,14 @@ jobs:
           name: atlas-agent-interaction-preview
           path: .preview/agent-demo/
           include-hidden-files: true
-      - name: Install private runtime test dependencies
-        run: npm ci --ignore-scripts --prefix agent/runtime
-      - name: Build private Worker without deployment
-        run: |
-          npm run build --prefix agent/runtime
-          npm run build:stage --prefix agent/runtime
-      - name: Test Owner authentication, D1, synchronization and model boundaries
-        run: npm test --prefix agent/runtime
+
+  private-runtime:
+    name: Validate private runtime from a clean checkout
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/validate-private-runtime

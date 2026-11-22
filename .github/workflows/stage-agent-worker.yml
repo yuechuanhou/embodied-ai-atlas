@@ -31,16 +31,8 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: agent/runtime/package-lock.json
-      - run: npm ci --ignore-scripts --prefix agent/runtime
-      - name: Build private Worker without credentials
-        run: npm run build:stage --prefix agent/runtime
-      - name: Test private runtime and deployment boundaries without credentials
-        run: npm test --prefix agent/runtime
+      - name: Validate private runtime from a clean checkout without credentials
+        uses: ./.github/actions/validate-private-runtime
       - name: Plan or create the closed Worker
         env:
           ATLAS_WORKER_MODE: ${{ inputs.mode }}
