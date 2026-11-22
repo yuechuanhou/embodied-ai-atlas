@@ -135,9 +135,36 @@ test('model adapter saves explanations and drafts; credentials never enter expor
 });
 
 test('Claude adapter uses the same validated private-result contract', async t => {
-  const h = await prepared(t, {...enabled, MODEL_PROVIDER: 'anthropic'});
+  const h = await prepared(t, {...enabled, MODEL_PROVIDER: 'anthropic', MODEL_NAME: 'claude-sonnet-5-5'});
+  h.world.modelResponse = {answer: 'Synthetic explanation', cited_source_ids: [], candidate: {
+    candidate_id: null, title: 'Synthetic private addition', markdown: 'Unverified synthetic draft', article_id: null, primary_domain: 'foundations'}};
   const result = await send(h, turn()); assert.equal(result.status, 200); assert.equal(result.data.mode, 'model');
   assert.equal(h.world.modelCalls[0].origin, 'https://api.anthropic.com');
+  const data = JSON.parse(h.world.modelCalls[0].request.messages[0].content);
+  assert(data.sources.length > 0);
+  for (const source of data.sources) {
+    assert(h.world.snapshot.articles.some(a => a.id === source.article_id && a.primary_domain === source.primary_domain));
+  }
+  const session = (await h.request('/api/sessions/' + h.sessionId)).data;
+  assert.equal(session.candidates.length, 1); assert.equal(session.messages.length, 2);
+});
+
+test('truncated Claude drafts retain the question and budget without saving partial results or rebilling', async t => {
+  const h = await prepared(t, {...enabled, MODEL_PROVIDER: 'anthropic', MODEL_NAME: 'claude-sonnet-5-5'});
+  h.world.modelStop = 'max_tokens';
+  h.world.modelResponse = {answer: 'Partial synthetic answer', cited_source_ids: [], candidate: {
+    candidate_id: null, title: 'Partial synthetic draft', markdown: 'Must not be saved', article_id: null, primary_domain: 'foundations'}};
+  const body = turn(), response = await send(h, body);
+  assert.equal(response.status, 502); assert.equal(response.data.error, 'model_output_truncated');
+  const session = (await h.request('/api/sessions/' + h.sessionId)).data;
+  assert.equal(session.messages.length, 1); assert.equal(session.messages[0].role, 'user');
+  assert.equal(session.candidates.length, 0);
+  assert.equal(session.requests[0].error_code, 'model_output_truncated');
+  const usage = await h.db.prepare('SELECT * FROM usage_daily').first();
+  assert.equal(usage.calls, 1); assert(usage.reserved_tokens >= 4096);
+  const replay = await send(h, body);
+  assert.equal(replay.status, 409); assert.equal(replay.data.error, 'model_output_truncated');
+  assert.equal(h.world.modelCalls.length, 1);
 });
 
 test('untrusted source IDs, domain IDs and extra commands in model output are rejected', async t => {

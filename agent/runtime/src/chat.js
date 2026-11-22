@@ -46,7 +46,8 @@ export async function sendMessage({body, sessionId, ownerId, env, snapshot, fres
       const history = (await db.prepare("SELECT role,body,metadata_json FROM messages WHERE session_id=? AND sequence<? AND status='complete' ORDER BY sequence DESC LIMIT 8")
         .bind(sessionId, sequence).all()).results.reverse().map(message => ({role: message.role, body: message.body.slice(0, 800), revision: JSON.parse(message.metadata_json).revision || null}));
       const input = modelInput({question: body.message, selectedText: selected, context, history,
-        sources: sources.map(s => ({source_id: s.source_id, title: s.title, excerpt: s.excerpt.slice(0, 1000)})), candidates: catalog, snapshot});
+        sources: sources.map(s => ({source_id: s.source_id, article_id: s.article_id, topic_id: s.topic_id,
+          primary_domain: s.primary_domain, anchor: s.anchor, title: s.title, excerpt: s.excerpt.slice(0, 1000)})), candidates: catalog, snapshot});
       const reservation = new TextEncoder().encode(input.instructions + input.input).length + config.outputTokens + 1024;
       requireValue(reservation <= config.tokenLimit, 429, 'daily_model_budget_exceeded');
       const day = new Date(now * 1000).toISOString().slice(0, 10);

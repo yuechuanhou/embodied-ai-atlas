@@ -4,6 +4,10 @@ function client() {
   let active = null, offset = 0, sessions = [], busy = false, context = {}, retry = null, loadToken = 0;
   const hints = {authentication_required: '请重新登录私人工作台。', invalid_identity: '登录已失效，请刷新并重新登录。', owner_required: '此工作台仅允许 Owner 使用。',
     knowledge_not_ready: '知识快照尚未就绪，请同步内容后再试。', daily_model_budget_exceeded: '已达到今天配置的模型调用上限。', model_request_incomplete: '模型请求未完成；请先刷新会话确认结果，避免重复提交。',
+    model_output_truncated: '模型输出达到上限，本次回答和草稿未保存。请核对结果；重新发起会再次调用模型。',
+    model_refused: '模型未接受本次问题，本次未保存回答或草稿。可以调整问题后发起新的请求。',
+    model_context_limit: '模型上下文达到上限，本次未保存回答或草稿。可以缩短问题或开始新会话。',
+    model_output_incomplete: '模型未正常完成输出，本次未保存回答或草稿。请核对结果后再决定是否重新发起。',
     request_in_progress: '此请求仍在处理中，请稍后刷新会话。', request_outcome_unknown: '上次请求已中断，结果和用量可能未能返回；请核对会话，再决定是否重新调用。', session_busy: '当前会话仍有请求处理中。', service_unavailable: '私人服务暂不可用，请稍后重试。'};
   async function api(path, method = 'GET', body) {
     const response = await fetch(path, {method, credentials: 'same-origin', headers: method === 'GET' ? {} : {'Content-Type': 'application/json', 'X-Atlas-Request': '1'}, body: body === undefined ? undefined : JSON.stringify(body)});
