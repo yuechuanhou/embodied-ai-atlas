@@ -23,7 +23,7 @@ export async function harness(bindings = {}) {
   const buildManifest = JSON.parse(await readFile(path.join(ROOT, 'dist/knowledge-manifest.json'), 'utf8'));
   const initial = JSON.parse(await readFile(path.join(ROOT, 'dist', buildManifest.index_path), 'utf8'));
   const world = {snapshot: {...initial, revision: 'a'.repeat(40)}, main: 'a'.repeat(40), failed: false,
-    deployment: 'success', modelCalls: [], modelReads: [], modelResponse: null, modelFail: false, mismatch: false};
+    deployment: 'success', modelCalls: [], modelReads: [], modelResponse: null, modelFail: false, modelStop: 'end_turn', mismatch: false};
   function artifact() {
     const body = JSON.stringify(world.snapshot), digest = hash(body);
     return {body, manifest: JSON.stringify({schema_version: 1, revision: world.snapshot.revision,
@@ -49,7 +49,7 @@ export async function harness(bindings = {}) {
       if (world.modelFail) return {statusCode: 503, data: '{}'};
       const value = world.modelResponse || {answer: 'Synthetic model explanation; new material needs verification.', cited_source_ids: [], candidate: null};
       const data = origin.includes('openai') ? {status: 'completed', output: [{type: 'message', content: [{type: 'output_text', text: JSON.stringify(value)}]}], usage: {total_tokens: 100}} :
-        {stop_reason: 'end_turn', content: [{type: 'text', text: JSON.stringify(value)}], usage: {input_tokens: 60, output_tokens: 40}};
+        {stop_reason: world.modelStop, content: [{type: 'text', text: JSON.stringify(value)}], usage: {input_tokens: 60, output_tokens: 40}};
       return {statusCode: 200, data: JSON.stringify(data)};
     }).delay(100).persist();
   }

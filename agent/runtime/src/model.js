@@ -4,7 +4,8 @@ export function modelConfiguration(env) {
   const ready = ['openai', 'anthropic'].includes(env.MODEL_PROVIDER) && text(env.MODEL_NAME, 100) && text(env.MODEL_API_KEY, 1000) &&
     /^[1-9][0-9]{0,4}$/.test(env.DAILY_CALL_LIMIT || '') && /^[1-9][0-9]{0,8}$/.test(env.DAILY_TOKEN_LIMIT || '');
   return {ready: !!ready, provider: ready ? env.MODEL_PROVIDER : 'disabled',
-    callLimit: Number(env.DAILY_CALL_LIMIT), tokenLimit: Number(env.DAILY_TOKEN_LIMIT), outputTokens: 1536};
+    callLimit: Number(env.DAILY_CALL_LIMIT), tokenLimit: Number(env.DAILY_TOKEN_LIMIT),
+    outputTokens: env.MODEL_PROVIDER === 'anthropic' ? 4096 : 1536};
 }
 export function modelInput({question, selectedText, context, history, sources, candidates, snapshot}) {
   const instructions = 'You are the private Embodied AI Atlas learning assistant. Answer in the user’s language. ' +
@@ -14,6 +15,8 @@ export function modelInput({question, selectedText, context, history, sources, c
     'prefer its existing canonical article, otherwise suggest one allowed primary_domain. New factual material is unverified. ' +
     'Return exactly JSON with answer (string), cited_source_ids (array of supplied source_id), candidate (null or object with ' +
     'candidate_id, title, markdown, article_id, primary_domain). candidate_id/article_id may be null. ' +
+    'Keep the answer and candidate concise; the candidate should capture the useful addition rather than duplicate the entire answer. ' +
+    'Use only supplied article IDs for placement; use null when no supplied article fits. ' +
     'Do not repeat already covered knowledge just to create an article. Never output commands, permissions or approvals.';
   const data = {question, selected_text: selectedText, reading_context: context, history: [...history], sources: sources.map(s => ({...s})),
     existing_candidates: [...candidates], allowed_domains: snapshot.domains.filter(d => !d.auxiliary).map(d => ({id: d.id, name: d.name})),
@@ -67,20 +70,31 @@ export async function callModel(env, config, input, fetchImpl) {
     url = 'https://api.anthropic.com/v1/messages';
     headers = {'x-api-key': env.MODEL_API_KEY, 'anthropic-version': '2026-10-21', 'Content-Type': 'application/json'};
     body = {model: env.MODEL_NAME, max_tokens: config.outputTokens, system: input.instructions,
+      output_config: {format: {type: 'json_schema', schema: resultSchema}},
       messages: [{role: 'user', content: input.input}]};
+    // This model defaults to adaptive thinking, which shares max_tokens with
+    // the JSON answer and draft. No tools run in this learning-turn adapter.
+    if (env.MODEL_NAME === 'claude-sonnet-5-5') {
+      body.thinking = {type: 'between_tools'};
+      body.output_config.effort = 'medium';
+    }
   }
   let response;
   try { response = await fetchImpl(url, {method: 'POST', headers, body: JSON.stringify(body),
-    redirect: 'manual', signal: AbortSignal.timeout(20_000)}); }
+    redirect: 'manual', signal: AbortSignal.timeout(config.provider === 'anthropic' ? 60_000 : 20_000)}); }
   catch { throw new ApiError(502, 'model_request_incomplete'); }
   requireValue(response.ok, 502, 'model_provider_error');
   const result = JSON.parse(await readText(response, 150_000));
   let output, tokens;
   if (config.provider === 'openai') {
+    if (result.incomplete_details?.reason === 'max_output_tokens') throw new ApiError(502, 'model_output_truncated');
     requireValue(result.status === 'completed', 502, 'model_output_incomplete');
     output = result.output?.flatMap(item => item.content || []).filter(item => item.type === 'output_text').map(item => item.text).join('');
     tokens = result.usage?.total_tokens;
   } else {
+    if (result.stop_reason === 'max_tokens') throw new ApiError(502, 'model_output_truncated');
+    if (result.stop_reason === 'refusal') throw new ApiError(502, 'model_refused');
+    if (result.stop_reason === 'model_context_window_exceeded') throw new ApiError(502, 'model_context_limit');
     requireValue(result.stop_reason === 'end_turn', 502, 'model_output_incomplete');
     output = result.content?.filter(item => item.type === 'text').map(item => item.text).join('');
     tokens = (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0) +

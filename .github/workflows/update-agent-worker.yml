@@ -1,0 +1,43 @@
+name: Update private Atlas Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Read-only plan or update code while preserving existing private configuration
+        type: choice
+        options: [plan, deploy]
+        default: plan
+      confirmation:
+        description: For deploy, enter atlas-agent-private
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: atlas-agent-worker-setup
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.repository == 'yuechuanhou/embodied-ai-atlas' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: atlas-agent-bootstrap
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate the exact source revision without cloud credentials
+        uses: ./.github/actions/validate-private-runtime
+      - name: Plan or update the existing private Worker code
+        env:
+          ATLAS_WORKER_MODE: ${{ inputs.mode }}
+          ATLAS_WORKER_CONFIRMATION: ${{ inputs.confirmation }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_API_TOKEN }}
+          ATLAS_D1_DATABASE_ID: ${{ secrets.ATLAS_D1_DATABASE_ID }}
+        run: node agent/runtime/scripts/update-worker.js
