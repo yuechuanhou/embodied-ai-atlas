@@ -1,13 +1,13 @@
 # Atlas private runtime — implementation v0.1
 
-状态：**2026-11-22 Owner 界面已观察到私人工作台登录、线上知识快照和一次 Claude 真实问答；解释与私人草稿的联合验收出现 `model_output_incomplete`，尚未通过完整验收**。本轮修复和代码更新方式见 [UPDATE.md](UPDATE.md)。此目录与公开 Pages 阅读网站分离，不属于 Personal OS 主应用；仍没有 GitHub 写入或正式发布接口。
+状态：**Owner 已确认 PR #13 部署后的 Claude 问答、私人候选生成以及刷新后恢复对话和候选通过验收**。本分支继续改进工作台阅读、会话管理与发送反馈，合并和线上代码更新仍须 Owner 确认。更新方式见 [UPDATE.md](UPDATE.md)。此目录与公开 Pages 阅读网站分离，不属于 Personal OS 主应用；仍没有 GitHub 写入或正式发布接口。
 
 受环境网络限制时，[GitHub D1 首次接入](GITHUB_SETUP.md) 已在 Owner 配置 Environment Secrets、审阅合并并手动启动后成功运行。[Worker 首次创建流程](WORKER_SETUP.md) 仅负责初次创建；已接入的线上 Worker 使用独立的 [代码更新流程](UPDATE.md)，不随普通推送部署。
 
 ## 已实现的边界
 
 - Worker 对工作台和所有 API 校验 Access JWT 的签名、RS256、固定 issuer、audience、有效期及唯一 Owner 邮箱。邮箱在私有配置中；不接受客户端传入 Owner，不提供开发鉴权绕过。
-- 工作台与 API 同源。API 拒绝跨站来源；写操作还要求准确 Origin、JSON 和自定义请求头。所有响应禁止公共缓存；工作台使用 CSP、纯文本渲染和独立登录。没有公开静态资源路由绕过 Worker 校验。
+- 工作台与 API 同源。API 拒绝跨站来源；写操作还要求准确 Origin、JSON 和自定义请求头。所有响应禁止公共缓存；工作台使用 CSP、经清洗的 Markdown 渲染和独立登录。没有公开静态资源路由绕过 Worker 校验。
 - D1 保存会话、消息、引用版本、私人候选、来源链、请求状态与用量。模型输出不能创建批准、执行工具或取得部署凭据。
 - 相同请求 ID 和输入重发返回已保存结果；不重复调用模型。并发会话锁、带约束的事务提交和调用前用量预留，防止旧请求覆盖新状态。超时/未知调用保留预留额度，不自动重放。会话读取时将失去有效租约的处理中请求标为结果未知，允许明确发起新的尝试。
 - 新知识自动成为私人候选，状态为待查证。模型不得自称已完成外部检索；本阶段没有网页研究工具或真实发布接口。
@@ -55,7 +55,7 @@ WRANGLER_SEND_METRICS=false npx --no-install wrangler d1 migrations apply DB --l
 
 ## API 与数据范围
 
-所有入口均须通过 Owner JWT；POST/DELETE 还要求同源请求头。
+所有入口均须通过 Owner JWT；POST/PATCH/DELETE 还要求同源请求头。
 
 | 入口 | 作用 |
 | --- | --- |
@@ -65,6 +65,7 @@ WRANGLER_SEND_METRICS=false npx --no-install wrangler d1 migrations apply DB --l
 | `POST /api/search` | 按已发布快照查文章/章节，返回稳定链接 |
 | `GET/POST /api/sessions` | 分页会话列表 / 创建会话 |
 | `GET /api/sessions/:id` | 本人会话、消息、候选和请求状态 |
+| `PATCH /api/sessions/:id` | 修改本人会话名称（1–80 个 Unicode 码点）；保留其他 summary 元数据 |
 | `POST /api/sessions/:id/messages` | 检索、可选模型讲解、自动候选和私有保存 |
 | `GET /api/sessions/:id/export` | 本次会话与候选/证据的 JSON 导出，不包含 Secrets |
 | `DELETE /api/sessions/:id` | 删除会话、消息、候选、关联和请求；进行中的请求阻止删除 |
@@ -75,4 +76,23 @@ WRANGLER_SEND_METRICS=false npx --no-install wrangler d1 migrations apply DB --l
 
 ## 未完成的上线验收
 
-已有登录、知识同步和一次 Claude 回答的 Owner 界面观察；修复后的完整问答、候选归类及刷新恢复仍需重新验收。退出与错误身份拒绝、跨设备体验、云端导出及隔离恢复仍需实际账号验证。GitHub 写入 App、正式变更提案/审批与发布、外部资料查证、持久发布任务属于后续阶段。这个版本不能自行修改网站。
+PR #13 部署后的完整问答、候选生成及刷新恢复已由 Owner 确认。本分支 UI 的线上验收尚待部署后完成。退出与错误身份拒绝、跨设备体验、云端导出及隔离恢复仍需实际账号验证。GitHub 写入 App、正式变更提案/审批与发布、外部资料查证、持久发布任务属于后续阶段。这个版本不能自行修改网站。
+
+
+## 工作台阅读与交互
+
+- 会话列表使用手动名称；未命名时显示首条提问的前 40 个字符。名称来自 `sessions.summary_json.title`，属于展示元数据，不送入模型上下文。改名保留其他 JSON 对象字段，无须追加数据库迁移。旧会话自动兼容。
+- 点击发送同步显示提问、清空输入、显示沿原站标志两条椭圆轨迹运动的流星。等待期间可写下一条问题；回答返回不覆盖该草稿。同一请求 ID 不自动重试模型调用；失败后先核对结果，明确的新尝试才可能重新计费。
+- 助手与候选正文使用本地打包的 Marked + DOMPurify。支持标题、列表、引用、表格与代码块；原始 HTML 转义，图片显示替代文字，仅允许 HTTP(S) 链接，不加载模型提供的远程图片、脚本、样式或组件。用户消息始终按纯文本处理。暂不提供数学排版、语法高亮或逐 token 流式回答。
+- 候选卡片的 Domain/目标文章来自已保存 `placement_json`，通过当前有效知识快照解析名称和 canonical URL。`placement_view` 是读取时生成的视图，不回写候选或复制权威内容；未知 ID、归属不匹配及来源版本变化明确提示。当前候选协议未分配 Topic，文章中的已有 Topic 只作为归类参考展示，不宣称已分配。
+- 主体为固定输入框和独立对话滚动区。会话历史/候选均可收起；窄屏使用侧栏抽屉，提供焦点管理和 Escape 关闭。深色沿用浅 Tiffany blue；减少动态效果设置下停用动画。
+- `build:client` 将浏览器依赖打包到忽略的 `.preview/private-client/workbench-client.js`；`build` 和 `build:stage` 自动先构建它。Worker 更新仍是原有三个 Text modules，不引入 CDN 或独立公开资源入口。
+
+本地视觉预览（全部为模拟数据，不访问真实模型、私有 D1 或生产账号）：
+
+```sh
+# 完成上面的本地 build 后
+node agent/runtime/scripts/preview-workbench.js
+```
+
+输出 `.preview/workbench-ui/index.html`。该文件的模拟 API 仅用于视觉检查，不属于 Worker 构建或发布产物。真实会话/候选仍由认证后的同源 D1 API 恢复。

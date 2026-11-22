@@ -1,17 +1,41 @@
-import clientSource from './workbench-client.js';
+import clientSource from '../../../.preview/private-client/workbench-client.js';
 import baseCSS from '../../../assets/site.css';
 import mark from '../../../assets/icons/mark.svg';
+import style from './workbench-style.js';
 
+const icons = {
+  panel: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
+  close: '<path d="m6 6 12 12M6 18 18 6"/>',
+  edit: '<path d="m14 5 5 5M4 20l5-1L20 8a2 2 0 0 0-5-5L4 14v6Z"/>',
+  theme: '<path d="M20 14.2A8.5 8.5 0 0 1 9.8 4 8.5 8.5 0 1 0 20 14.2Z"/>',
+  sync: '<path d="M20 7v5h-5M4 17v-5h5M19 12a7 7 0 0 0-12-5l-3 3m1 2a7 7 0 0 0 12 5l3-3"/>',
+  export: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/>',
+  trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/>',
+};
+const icon = name => '<svg viewBox="0 0 24 24" aria-hidden="true">' + icons[name] + '</svg>';
+const button = (id, name, label, extra = '') => `<button id="${id}" type="button" class="icon-button ${extra}" aria-label="${label}" title="${label}">${icon(name)}</button>`;
+export function waitingMark() {
+  const ellipses = mark.match(/<ellipse[^>]+\/>/g);
+  const tracks = ellipses.map((ellipse, i) => '<g>' + ellipse.replace('/>', ' class="orbit-base"/>') +
+    ['tail-2', 'tail-1', 'head'].map(cls => ellipse.replace('/>', ` pathLength="100" class="comet ${cls} ${i ? 'orbit-second' : ''}"/>`)).join('') + '</g>').join('');
+  return '<svg class="orbit-icon" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2">' + tracks + '</g><circle cx="32" cy="32" r="4.2" fill="currentColor"/></svg>';
+}
 export function renderWorkbench(nonce) {
-  return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<title>Atlas · 私人工作台</title><style>' + baseCSS + `
-    .private-wrap{max-width:1240px;margin:auto;padding:25px 28px}header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:20px;border-bottom:1px solid var(--line)}header .identity{display:flex;align-items:center;gap:14px}header svg{width:40px;height:40px;color:var(--accent)}h1{font-size:21px;line-height:1.4;margin:0}header p{font-size:13px;color:var(--muted);margin:3px 0 0}button{border:1px solid var(--line);border-radius:8px;padding:7px 12px;background:var(--paper);color:var(--ink);font:inherit;font-size:14px}button:disabled{opacity:.55;cursor:default}.private-grid{display:grid;grid-template-columns:210px minmax(0,1fr) 285px;gap:22px;margin-top:22px}aside{min-width:0}.session-item{display:block;width:100%;text-align:left;margin:9px 0;font-size:13px}.session-item[aria-current=true]{background:var(--accent-soft);border-color:var(--accent)}.private-chat{min-width:0;border:1px solid var(--line);border-radius:14px;background:var(--paper);overflow:hidden}.status-line{padding:14px 18px;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}#messages{padding:22px;min-height:42vh;max-height:60vh;overflow:auto}.message{margin-bottom:25px}.message b{font-size:13px;color:var(--accent)}.message p{margin:7px 0;font-size:16px;white-space:pre-wrap;overflow-wrap:anywhere}.message.user{background:var(--paper-2);padding:11px 14px;border-radius:10px}.source{display:block;font-size:14px;text-decoration:none;padding:10px 12px;border:1px solid var(--line);border-radius:9px;margin-top:10px}.source small{display:block;color:var(--muted);font-size:12px}.private-form{border-top:1px solid var(--line);padding:16px}textarea{display:block;width:100%;min-height:95px;resize:vertical;background:var(--paper);color:var(--ink);font:inherit;border:1px solid var(--line);border-radius:9px;padding:10px}textarea:focus-visible{outline:2px solid var(--accent)}.form-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}.primary{background:var(--accent);color:var(--paper);border:0}:root[data-theme=dark] .primary{color:#11363b}.muted{font-size:13px;color:var(--muted)}.candidate{border-bottom:1px solid var(--line);padding-bottom:15px;margin-bottom:17px}.candidate h3{font-size:15px;margin:8px 0}.candidate pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:14px;max-height:300px;overflow:auto}.aside-title{font-size:14px;color:var(--muted);margin:0 0 14px}#error{color:var(--accent);font-size:14px;padding:0 16px;overflow-wrap:anywhere}#private-context{font-size:13px}.private-tools{display:flex;gap:8px;flex-wrap:wrap}.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}@media(max-width:1000px){.private-grid{grid-template-columns:170px minmax(0,1fr)}.drafts{grid-column:2}}@media(max-width:700px){.private-wrap{padding:18px 15px}.private-grid{display:flex;flex-direction:column;gap:18px}#sessions{max-height:140px;overflow:auto}#messages{max-height:none;min-height:200px}header{align-items:flex-start}.private-tools button{font-size:12px}.drafts{grid-column:auto}}
-    </style></head><body><div class="private-wrap"><header><div class="identity">` + mark +
-    '<div><h1>Atlas 私人工作台</h1><p>学习 · 连接 · 沉淀</p></div></div><div class="private-tools"><button id="refresh">同步内容</button><button id="theme">深浅主题</button></div></header>' +
-    '<div class="private-grid"><aside><button id="new-session">开始新对话</button><div id="sessions"></div><button id="more" hidden>更多会话</button></aside>' +
-    '<main class="private-chat"><div id="status" class="status-line" role="status">正在核验私人环境…</div><div id="private-context" class="status-line"></div>' +
-    '<div id="messages" aria-label="对话记录"></div><p id="error" role="alert"></p><button id="check-result" hidden>核对请求结果</button><button id="new-attempt" hidden>重新发起请求</button><form id="form" class="private-form"><label class="visually-hidden" for="question">向 Atlas 提问</label>' +
-    '<textarea id="question" maxlength="4000" placeholder="想了解什么，或遇到了什么问题？"></textarea><div class="form-actions"><span class="muted">草稿保持私有 · 正式入库需审阅</span><button class="primary" id="send" type="submit">发送</button></div></form></main>' +
-    '<aside class="drafts"><h2 class="aside-title">自动整理的私人候选</h2><div id="candidates"><p class="muted">新的理解会在这里积累。</p></div><div class="private-tools"><button id="export">导出本次会话</button><button id="delete-session">删除本次会话</button></div><p class="muted">此阶段保存候选，不创建公共 PR。模型补充尚需核实来源。</p></aside></div></div>' +
-    '<script nonce="' + nonce + '">' + clientSource + '</script></body></html>';
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><title>Atlas · 私人工作台</title><style>${baseCSS}${style}</style></head><body>
+<div class="app candidates-closed" id="app">
+  <aside class="history" id="history-panel" aria-label="会话历史"><div class="panel-header"><div class="identity">${mark}<div><strong>Atlas</strong><small>私人学习工作台</small></div></div>${button('close-history', 'close', '收起会话列表', 'mobile-close')}</div>
+    <button id="new-session" class="new-session" type="button">＋ 新对话</button><p class="section-label">最近对话</p><nav id="sessions" class="session-list" aria-label="选择会话"></nav><button id="more" hidden type="button">加载更多</button>
+    <div class="sidebar-footer"><button id="refresh" type="button">${icon('sync')}同步知识内容</button><button id="export" type="button">${icon('export')}导出当前会话</button><button id="delete-session" type="button" class="danger">${icon('trash')}删除当前会话</button></div>
+  </aside>
+  <main class="private-chat" id="chat-panel"><header class="chat-header">${button('toggle-history', 'panel', '展开或收起会话列表')}<div class="title-group"><div class="title-line"><h1 id="conversation-title">新对话</h1>${button('rename', 'edit', '修改对话名称')}</div><div id="status" class="status-line" role="status">正在核验私人环境…</div></div><div class="header-tools">${button('theme', 'theme', '切换深浅主题')}<button id="toggle-candidates" class="candidate-toggle" type="button" aria-controls="candidate-panel" aria-expanded="false">知识候选 <span id="candidate-count" class="count">0</span></button></div></header>
+    <div class="chat-scroll" id="chat-scroll"><div id="private-context" class="context-line"></div><div class="conversation"><section id="empty-state" class="empty-state"><div class="empty-mark">${mark}</div><h2>从一个问题，连接已有知识。</h2><p>一起理解概念、梳理问题，让新的认识慢慢沉淀。</p><div class="suggestions"><button type="button" data-prompt="帮我找到站内关于 VIO 的知识和原文入口。">找一找已有知识</button><button type="button" data-prompt="我遇到了一个系统集成问题，想一起分析可能的原因。">讨论一个实际问题</button><button type="button" data-prompt="请帮我梳理当前对话中值得保留的知识，整理为私人候选，暂不发布。">整理值得保留的理解</button></div></section><div id="messages" aria-label="对话记录"></div><div id="waiting" class="waiting" hidden>${waitingMark()}<span>正在检索并生成回答…</span></div></div></div>
+    <div class="feedback"><p id="error" role="alert"></p><div class="retry-actions"><button id="check-result" hidden type="button">核对请求结果</button><button id="new-attempt" hidden type="button">重新发起请求</button></div></div>
+    <form id="form" class="private-form"><div class="composer"><label for="question" class="visually-hidden">向 Atlas 提问</label><textarea id="question" rows="2" maxlength="4000" placeholder="想了解什么，或遇到了什么问题？"></textarea><div class="form-actions"><span id="composer-hint">Enter 发送 · Shift + Enter 换行</span><button id="send" class="send" type="submit">发送</button></div></div><p class="form-note">对话与候选仅自己可见 · 模型补充需要核验，正式入库需审阅</p></form>
+  </main>
+  <aside class="drafts" id="candidate-panel" aria-label="私人知识候选"><div class="panel-header"><h2>知识候选 <span id="panel-count" class="muted">0</span></h2>${button('close-candidates', 'close', '收起知识候选')}</div><p class="panel-description">从对话中沉淀，经过核验后再入库。</p><div id="candidates" class="candidate-list"></div><div class="draft-footer">此阶段仅保存私人候选，不创建公共 PR。</div></aside>
+  <button id="scrim" class="scrim" type="button" aria-label="关闭侧栏" tabindex="-1"></button>
+</div>
+<dialog id="rename-dialog" class="dialog" aria-labelledby="rename-heading"><form id="rename-form"><h2 id="rename-heading">修改对话名称</h2><label for="session-title">对话名称</label><input id="session-title" name="title" maxlength="160" autocomplete="off" required><p id="rename-error" class="dialog-error" role="alert"></p><div class="dialog-actions"><button id="rename-cancel" type="button">取消</button><button id="rename-save" class="send" type="submit">保存</button></div></form></dialog>
+<template id="avatar">${mark}</template><div id="announcer" class="visually-hidden" role="status" aria-live="polite"></div>
+<script nonce="${nonce}">${clientSource.replace(/<\/(script|body|html|head)/gi, '<\\/$1')}</script></body></html>`;
 }

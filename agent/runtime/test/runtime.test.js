@@ -28,7 +28,7 @@ test('private workbench and every API require a verified Owner JWT', async t => 
     assert.equal((await h.request(route, {jwtOverride: null})).status, 401);
   }
   const workbench = await h.request('/');
-  assert.equal(workbench.status, 200); assert(workbench.data.includes('Atlas 私人工作台'));
+  assert.equal(workbench.status, 200); assert(workbench.data.includes('私人学习工作台'));
   assert(workbench.headers.get('content-security-policy').includes("frame-ancestors 'none'"));
   assert.equal(workbench.headers.get('cache-control'), 'private, no-store');
   assert.equal((await h.request('/api/status')).status, 200);
