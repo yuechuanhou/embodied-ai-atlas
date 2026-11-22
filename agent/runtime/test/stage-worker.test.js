@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {stageWorker, stagingConfig, WORKER_NAME} from '../scripts/stage-worker.js';
+import {EventEmitter} from 'node:events';
+import {stageWorker, stagingConfig, WORKER_NAME, deploymentFailureMessage, deployClosedWorker} from '../scripts/stage-worker.js';
 
 const account = 'b'.repeat(32), databaseId = '12345678-1234-4234-8234-123456789abc';
 const env = {CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: 'synthetic-worker-token', ATLAS_D1_DATABASE_ID: databaseId};
@@ -99,4 +100,36 @@ test('generated staging config has no entry points, schedules, identities, model
   assert.equal(config.d1_databases.length, 1); assert.equal(config.d1_databases[0].database_id, databaseId);
   assert.equal(config.account_id, undefined); assert.equal(config.assets, undefined); assert.equal(config.services, undefined);
   assert.throws(() => stagingConfig('00000000-0000-0000-0000-000000000000'));
+});
+
+test('deployment diagnostics expose only bounded API codes or fixed categories', () => {
+  const privateText = 'Bearer synthetic-private-secret owner@example.test ' + account + ' ' + databaseId;
+  assert.equal(deploymentFailureMessage(privateText + ' Authentication error [code: 10000]'),
+    'worker_deployment_failed_cf_10000_review_before_retry');
+  assert.equal(deploymentFailureMessage(privateText + ' forbidden'), 'worker_deployment_failed_authorization_review_before_retry');
+  assert.equal(deploymentFailureMessage(privateText + ' register a workers.dev subdomain'), 'worker_deployment_failed_subdomain_setup_review_before_retry');
+  assert.equal(deploymentFailureMessage(privateText + ' fetch failed'), 'worker_deployment_failed_network_review_before_retry');
+  assert.equal(deploymentFailureMessage(privateText), 'worker_deployment_incomplete_review_before_retry');
+  const many = deploymentFailureMessage('[code: 10000] [code: 10000] [code: 10021] [code: 10063] [code: 10007]');
+  assert.equal(many, 'worker_deployment_failed_cf_10000_10021_10063_review_before_retry');
+});
+
+test('a failed Wrangler subprocess is captured privately, sanitized and never retried', async () => {
+  let processes = 0;
+  const spawnImpl = (executable, args, options) => {
+    processes++;
+    assert(args.includes('--config')); assert.equal(args.includes(env.CLOUDFLARE_API_TOKEN), false);
+    assert.deepEqual(options.stdio, ['ignore', 'pipe', 'pipe']);
+    const child = Object.assign(new EventEmitter(), {stdout: new EventEmitter(), stderr: new EventEmitter()});
+    queueMicrotask(() => {
+      child.stdout.emit('data', Buffer.from('private stdout ' + env.CLOUDFLARE_API_TOKEN + databaseId));
+      child.stderr.emit('data', Buffer.from('private stderr owner@example.test [code: 100'));
+      child.stderr.emit('data', Buffer.from('00]'));
+      child.emit('close', 1);
+    });
+    return child;
+  };
+  await assert.rejects(deployClosedWorker(databaseId, env, {spawnImpl}),
+    error => error.message === 'worker_deployment_failed_cf_10000_review_before_retry');
+  assert.equal(processes, 1);
 });
