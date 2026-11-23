@@ -4,7 +4,7 @@
 
 公开 Atlas 继续独立提供导航、目录、搜索和完整文章，不要求登录。顶部或章节中的「问 Orbit」在同一标签进入已经验证的私人 Worker，先完成现有 Cloudflare Access 身份验证，再打开对应的原文、章节和导航视角。首次进入时地址会从公开域名切到私人 Worker 域名；这版没有更改 DNS 或把私人 API 移到公开域名。
 
-登录后的阅读区复用正式公开站，私人会话和 API 始终位于顶层 Worker 的同源环境。不在公开站内嵌需要跨站 Cookie 的私人工作台，也不要求放宽浏览器 Cookie 或 Access 设置。部署前须核对 `manifest.site.private_agent_origin` 与 Worker 的实际身份配置相同；`ATLAS_AGENT_ORIGIN` 可以覆盖入口元数据，也可以设为空关闭公开入口。
+登录后的阅读区复用正式公开站，私人会话和 API 始终位于顶层 Worker 的同源环境。不在公开站内嵌需要跨站 Cookie 的私人工作台，也不要求放宽浏览器 Cookie 或 Access 设置。部署前须核对 `manifest.site.private_agent_origin` 与 Worker 的实际身份配置相同；`ATLAS_AGENT_ORIGIN` 可以覆盖入口元数据，未设置或空字符串使用 manifest 中的入口，设为 `disabled` 则关闭公开入口。
 
 - **伴读**：章节附近的小窗；手机显示底部伴读面板。
 - **对话**：右侧阅读面板；窄屏使用完整对话页面，可收起回到原文。
