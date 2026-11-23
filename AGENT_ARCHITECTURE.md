@@ -8,7 +8,7 @@
 
 第一版同时服务**智能检索与引导、知识整理、知识库完善**。仅允许一个 Owner 使用；公开知识网站继续独立于 Personal OS。多人注册、共享记忆、多租户和多 Agent 编排不在本期范围内。
 
-`ARCHITECTURE.md` 继续定义知识身份、六阶段、三条 Loop、九个 Domain 和四个 Context。本文定义 Agent 的边界与执行原则；`CONTENT_WORKFLOW.md` 定义知识入库流程；JSON Schema 定义提案结构。发生冲突时先修正规范，不能让模型自行选择规则。
+`ARCHITECTURE.md` 继续定义知识身份、六阶段、三条 Loop、九个 Domain 和四个 Context。本文定义 Agent 边界；`CONTENT_WORKFLOW.md` 定义执行流程；`CONTENT_CHANGE_POLICY.md` 覆盖所有改动操作；`CONTENT_STYLE_GUIDE.md` 定义共同文风和分类型叙事；JSON Schema 定义当前支持的提案结构。发生冲突时停止对应写入并修正规范，不能让模型自行选择规则或扩权。
 
 ## 2. 从需求推导的设计原则
 
@@ -93,6 +93,8 @@ Owner 邮箱/subject、Access audience、GitHub App 密钥和模型密钥全部�
 `open_pr` 只授权创建 PR；`merge_and_deploy` 是未来一次确认完成发布的目标范围，须同时满足真实 GitHub 保护规则和 CI。当前开发不启用自动合并。rulesets 查询为空不能证明不存在传统分支保护；后者此前查询受集成权限限制，仍待验证。
 
 普通入库允许内容 Markdown 与必要元数据，禁止前端、工作流、Secrets、仓库设置和分类定义的修改。路径白名单只是一层检查；实际执行前必须比较解析后的语义，确保只添加合法引用、维持单一归属和历史身份。`agent/change_validation.py` 已提供本地参考检查：核对 before-image、比较元数据语义、隔离构建并拒绝可执行 HTML。当前 helpers 不含鉴权、技术事实审核或发布控制，尚不是完整发布安全边界。
+
+删除文件、移除既有身份/关系、合并、拆分、退役或迁移走变更规范中的独立流程；当前 v1 不支持时转手工 PR，不以 after-image 或 intents 绕过边界。正文删除和更正也必须显示其语义影响。私人会话删除、公开知识撤下、备份清理与 Git 历史重写是不同范围，不能共用一个模糊的“删除”批准。
 
 ## 6. 网站联动与记忆
 

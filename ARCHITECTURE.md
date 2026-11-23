@@ -134,7 +134,10 @@ New educational content is intentionally **outside v0.2 scope**.
 ## 10. Personal Agent extension
 
 The optional personal Agent follows [AGENT_ARCHITECTURE.md](AGENT_ARCHITECTURE.md)
-and [CONTENT_WORKFLOW.md](CONTENT_WORKFLOW.md). It does not change the knowledge
+and [CONTENT_WORKFLOW.md](CONTENT_WORKFLOW.md). All mutations follow
+[CONTENT_CHANGE_POLICY.md](CONTENT_CHANGE_POLICY.md); article editing follows
+[CONTENT_STYLE_GUIDE.md](CONTENT_STYLE_GUIDE.md). These contracts do not expand
+the v1 proposal contract's supported operations. The extension does not change the knowledge
 identities, taxonomy or navigation invariants above. GitHub remains the published
 knowledge source; private conversations, candidates and approvals live separately.
 Models propose changes; trusted services validate them and execute only an Owner's
