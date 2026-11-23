@@ -8,6 +8,8 @@ Orbit 的伴读、阅读侧栏与研究模式使用同一份会话界面，保�
 
 ## 已实现的边界
 
+功能部署证据、当前交付与待开发项统一记录在 [AGENT_ROADMAP.md](../../AGENT_ROADMAP.md)。候选审阅使用现有表与 Owner 认证，不增加数据库迁移或模型调用。
+
 - Worker 对工作台和所有 API 校验 Access JWT 的签名、RS256、固定 issuer、audience、有效期及唯一 Owner 邮箱。邮箱在私有配置中；不接受客户端传入 Owner，不提供开发鉴权绕过。
 - 工作台与 API 同源。API 拒绝跨站来源；写操作还要求准确 Origin、JSON 和自定义请求头。所有响应禁止公共缓存；工作台使用 CSP、经清洗的 Markdown 渲染和独立登录。没有公开静态资源路由绕过 Worker 校验。
 - D1 保存会话、消息、引用版本、私人候选、来源链、请求状态与用量。模型输出不能创建批准、执行工具或取得部署凭据。
@@ -71,6 +73,9 @@ WRANGLER_SEND_METRICS=false npx --no-install wrangler d1 migrations apply DB --l
 | `POST /api/sessions/:id/messages` | 检索、可选模型讲解、自动候选和私有保存 |
 | `GET /api/sessions/:id/export` | 本次会话与候选/证据的 JSON 导出，不包含 Secrets |
 | `DELETE /api/sessions/:id` | 删除会话、消息、候选、关联和请求；进行中的请求阻止删除 |
+| `GET /api/candidates/:id` | 本人的候选、对应核对记录和当前分类/文章选项 |
+| `PATCH /api/candidates/:id` | 按候选版本与知识快照检查后保存私人整理、归属和本人核对；会话进行中的请求阻止覆盖 |
+| `GET /api/candidates/:id/export?version=N` | 下载指定已保存版本的私人 Markdown，版本变化返回冲突，不修改 GitHub |
 
 删除会话会从当前 D1 数据库直接移除会话、消息、关联的未入库候选、候选来源关联以及请求记录；保留独立提案审计、最小来源指针和用量记录，不会删除已发布文章或公开 Git 历史；不是全账户即时抹除。保留周期、备份窗口、完全清理和恢复演练须在真实账号上线前决定。参见上级 `db/README.md`。
 

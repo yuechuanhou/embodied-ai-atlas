@@ -9,6 +9,67 @@ import {readerURL, readingContext} from '../src/reading-view.js';
 
 const enabled = {MODEL_PROVIDER: 'anthropic', MODEL_NAME: 'synthetic-test-model', MODEL_API_KEY: 'synthetic-secret', DAILY_CALL_LIMIT: '10', DAILY_TOKEN_LIMIT: '200000'};
 
+async function reviewFixture(t, intercept = null) {
+  const h = await harness(); t.after(h.dispose); await h.sync(); const id = await h.session();
+  await h.request('/api/sessions/' + id + '/messages', {method: 'POST', body: {request_id: randomUUID(), message: 'zzzzPrivateReviewConcept', reading_context: {}}});
+  const ui = await open(t, h, intercept); ui.d.querySelector('.candidate-actions button').click();
+  await until(() => !ui.d.getElementById('candidate-fields').hidden);
+  return {h, id, ...ui, save: () => ui.d.getElementById('candidate-form').dispatchEvent(new ui.dom.window.Event('submit', {bubbles: true, cancelable: true}))};
+}
+
+test('private candidate editor saves structured placement, renders safe preview and restores it after reload', async t => {
+  const ui = await reviewFixture(t), d = ui.d;
+  assert.equal(d.getElementById('candidate-dialog').open, true); assert.equal(d.getElementById('candidate-domain').options.length, 10);
+  d.getElementById('candidate-title').value = 'Owner <draft>'; d.getElementById('candidate-body').value = '**Private revision**\n\n<script>alert(1)</script>';
+  d.getElementById('candidate-body').dispatchEvent(new ui.dom.window.Event('input', {bubbles: true}));
+  assert(d.querySelector('#candidate-preview strong')); assert.equal(d.querySelector('#candidate-preview script'), null);
+  d.getElementById('candidate-domain').value = 'foundations'; d.getElementById('candidate-domain').dispatchEvent(new ui.dom.window.Event('change'));
+  d.getElementById('candidate-state').value = 'drafting'; ui.save();
+  await until(() => !d.getElementById('candidate-dialog').open);
+  assert.equal(d.querySelector('.candidate h3').textContent, 'Owner <draft>'); assert.match(d.querySelector('.candidate-state').textContent, /整理中.*v2/);
+  assert.match(d.querySelector('.candidate-actions a').href, /export\?version=2$/);
+  assert.equal(d.activeElement.dataset.candidateId, d.querySelector('.candidate-actions button').dataset.candidateId);
+  assert.equal(d.querySelector('.candidate h3 img'), null); assert.equal(ui.h.world.modelCalls.length, 0);
+  const restored = await open(t, ui.h); assert.equal(restored.d.querySelector('.candidate h3').textContent, 'Owner <draft>');
+  assert.match(restored.d.querySelector('.candidate').textContent, /后续模型草稿不会自动覆盖/); assert.deepEqual(ui.errors, []);
+});
+
+test('candidate review requires explicit source attestation and retains input when validation fails', async t => {
+  const ui = await reviewFixture(t), d = ui.d;
+  d.getElementById('candidate-state').value = 'ready'; d.getElementById('candidate-title').value = 'Keep this draft'; ui.save();
+  await until(() => d.getElementById('candidate-error').textContent.length > 0);
+  assert.equal(d.getElementById('candidate-dialog').open, true); assert.equal(d.getElementById('candidate-title').value, 'Keep this draft');
+  d.getElementById('candidate-domain').value = 'foundations';
+  d.getElementById('candidate-evidence-kind').value = 'experience'; d.getElementById('candidate-evidence-kind').dispatchEvent(new ui.dom.window.Event('change'));
+  d.getElementById('candidate-reference').value = 'Synthetic lab observation, limited conditions';
+  d.getElementById('candidate-supports').value = 'Supports only this synthetic draft, not a general technical conclusion.';
+  d.getElementById('candidate-confirm').checked = true; ui.save();
+  await until(() => !d.getElementById('candidate-dialog').open);
+  assert.match(d.querySelector('.candidate-state').textContent, /已整理.*待正式提案.*本人已核对/);
+  assert.equal(ui.h.world.modelCalls.length, 0);
+});
+
+test('a stale candidate editor retains the local draft instead of overwriting a concurrent saved version', async t => {
+  const ui = await reviewFixture(t), d = ui.d, detail = (await ui.h.request('/api/sessions/' + ui.id)).data.candidates[0];
+  const remote = await ui.h.request('/api/candidates/' + detail.id, {method: 'PATCH', body: {version: 1, snapshot_revision: ui.h.world.snapshot.revision,
+    title: 'Other saved version', draft_markdown: 'Other saved body', primary_domain: null, article_id: null, status: 'drafting', evidence: null}});
+  assert.equal(remote.status, 200); d.getElementById('candidate-body').value = 'Keep my unsaved local revision'; ui.save();
+  await until(() => d.getElementById('candidate-error').textContent.includes('其他页面更新'));
+  assert.equal(d.getElementById('candidate-body').value, 'Keep my unsaved local revision'); assert.equal(d.getElementById('candidate-dialog').open, true);
+  assert.equal((await ui.h.request('/api/candidates/' + detail.id)).data.candidate.draft_markdown, 'Other saved body');
+  d.getElementById('candidate-cancel').click(); assert.equal(d.getElementById('candidate-dialog').open, false);
+  assert.equal(d.activeElement.dataset.candidateId, detail.id);
+});
+
+test('an in-flight candidate save is submitted once and cannot be cancelled before its result', async t => {
+  let release, requests = 0; const gate = new Promise(resolve => {release = resolve;});
+  const ui = await reviewFixture(t, async (path, init) => {if (path.startsWith('/api/candidates/') && init.method === 'PATCH') {requests++; await gate;}});
+  ui.save(); ui.save(); await until(() => requests === 1);
+  assert.equal(ui.d.getElementById('candidate-save').disabled, true); assert.equal(ui.d.getElementById('candidate-cancel').disabled, true);
+  const escape = new ui.dom.window.Event('cancel', {cancelable: true}); ui.d.getElementById('candidate-dialog').dispatchEvent(escape); assert.equal(escape.defaultPrevented, true);
+  release(); await until(() => !ui.d.getElementById('candidate-dialog').open); assert.equal(requests, 1);
+});
+
 test('reader destinations and reading metadata are bounded canonical public values', () => {
   assert.equal(readerURL('https://evil.example/embodied-ai-atlas/'),null);
   assert.equal(readerURL('https://www.yuechuanhou.com/other/'),null);

@@ -1157,6 +1157,36 @@ html:not([data-reading-mode=research]) .message.assistant>.message-avatar {posit
   .reading-scope {padding:7px 13px;gap:6px}
   #reader-launch {right:16px;bottom:16px}
 }
+.candidate-actions {
+  display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-top:16px
+}
+.candidate-actions button {background:var(--paper-2);color:var(--accent)}
+.candidate-actions a,.candidate-dialog .dialog-actions a {font-size:14px;color:var(--accent);text-decoration:none;padding:8px 0}
+.candidate-dialog {
+  width:min(800px,calc(100vw - 32px));max-width:800px;max-height:calc(100dvh - 32px);overflow:auto;padding:28px
+}
+.candidate-dialog header h2 {margin:0}
+.candidate-dialog label {display:block;margin:18px 0 6px;font-size:14px;font-weight:600}
+.candidate-dialog input:not([type=checkbox]),.candidate-dialog textarea,.candidate-dialog select {
+  display:block;width:100%;max-width:100%;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);padding:10px 12px;font:inherit;font-size:16px
+}
+.candidate-dialog select {white-space:normal}
+.candidate-dialog textarea {resize:vertical;line-height:1.65}
+.candidate-field-grid {display:grid;grid-template-columns:1fr 1fr;gap:16px;min-width:0}
+.candidate-field-grid>div {min-width:0}
+.candidate-preview {margin-top:12px;border:1px solid var(--line);border-radius:9px;padding:10px 14px}
+.candidate-preview summary {cursor:pointer;font-size:14px;color:var(--muted)}
+.candidate-preview .message-content {margin-top:16px;overflow-wrap:anywhere}
+.candidate-dialog .candidate-confirm {display:flex;gap:10px;align-items:flex-start;font-weight:400}
+.candidate-confirm input {width:18px;height:18px;padding:0;margin-top:4px;accent-color:var(--accent);flex:none}
+.candidate-dialog .muted,.candidate-private-note {font-size:14px;line-height:1.65}
+.candidate-private-note {margin-top:20px;padding:12px 14px;border-radius:9px;background:var(--paper-2);color:var(--muted)}
+.candidate-dialog .dialog-actions {display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.candidate-dialog .dialog-actions a {margin-right:auto}
+@media(max-width:600px) {
+  .candidate-dialog {width:calc(100vw - 20px);max-height:calc(100dvh - 20px);padding:18px}
+  .candidate-field-grid {grid-template-columns:1fr;gap:0}
+}
 @media(prefers-reduced-motion:reduce) {
   *,*::before,*::after {
     animation:none!important;

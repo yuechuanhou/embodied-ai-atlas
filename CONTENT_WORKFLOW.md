@@ -1,6 +1,6 @@
 # Atlas 知识整理与入库规范 v0.1
 
-本规范供本人、Agent 和其他授权工具共同使用。知识归属规则以 `ARCHITECTURE.md` 为准，执行边界以 `AGENT_ARCHITECTURE.md` 为准。当前实现提案契约、本地语义检查和隔离模拟预览，尚无在线自动入库服务。
+本规范供本人、Agent 和其他授权工具共同使用。知识归属规则以 `ARCHITECTURE.md` 为准，执行边界以 `AGENT_ARCHITECTURE.md` 为准。私人学习与候选保存已部署；提案契约、本地语义检查和隔离模拟预览已实现，尚无在线自动入库服务。功能与上线证据见 `AGENT_ROADMAP.md`。
 
 ## 1. 正常学习流程
 
@@ -75,6 +75,8 @@ Owner 无须逐次发出“提炼、分类、更新 JSON、加反向引用”等
 ## 6. 状态与恢复
 
 候选状态：`captured → researching → drafting → ready`，也可转 `dismissed`；需要新证据可退回 researching。候选 ready 不等于批准。
+
+候选审阅记录可以由本人提供已阅读的官方来源/论文或工程经验，并确认其支持范围。在线审阅将该记录标为 `owner_attested`，绑定候选版本、草稿摘要和当前快照；它不表示 Agent 完成外部抓取。正文或归属改变后，重新确认才保留本版核对状态；快照变化使原记录不再视为当前。本人已编辑的候选不由后续模型草稿自动覆盖。私人 Markdown 导出仍不是正式提案、批准或入库。
 
 提案状态：`draft → ready → executing → completed`。批准是独立记录，不由提案状态推断。正文或基线改变生成新版本；旧版本批准不可复用。取消或冲突可置 `cancelled / blocked`，失败不抹掉历史。
 

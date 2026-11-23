@@ -51,5 +51,7 @@ export function candidateView(candidate, snapshot) {
     domain_mismatch: !!(article && domain && article.primary_domain !== domain.id),
     snapshot_revision: snapshot?.revision || null,
     source_is_current: !!snapshot && candidate.source_revision === snapshot.revision,
+    owner_edited: placement.owner_edited === true,
+    review_is_current: !!snapshot && placement.review?.snapshot_revision === snapshot.revision && placement.review?.candidate_version === candidate.version,
   }};
 }
