@@ -23,7 +23,7 @@ export function createApplication({fetchImpl = fetch, renderWorkbench = null} = 
         const nonce = uid().replace(/-/g, '');
         return new Response(renderWorkbench(nonce), {headers: {'Content-Type': 'text/html; charset=utf-8',
           'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
-          'Content-Security-Policy': "default-src 'none'; script-src 'nonce-" + nonce + "'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"}});
+          'Content-Security-Policy': "default-src 'none'; script-src 'nonce-" + nonce + "'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src https://www.yuechuanhou.com; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"}});
       }
       requireValue(env.DB, 503, 'database_not_configured');
       const db = env.DB;

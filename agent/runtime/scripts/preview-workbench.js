@@ -1,5 +1,5 @@
 // Development-only fixture: synthetic conversations and local mock APIs, no model calls.
-import {mkdir, writeFile} from 'node:fs/promises';
+import {cp, mkdir, readFile, writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {harness, ROOT} from '../test/helpers.js';
 import {candidateView} from '../src/session-view.js';
@@ -46,7 +46,15 @@ try {
   }
   const script = '<script>(' + mock.toString() + ')(' + JSON.stringify(fixture).replace(/</g, '\\u003c') + ');</script>';
   const folder = fileURLToPath(new URL('../../../.preview/workbench-ui/', import.meta.url));
-  await mkdir(folder, {recursive: true}); await writeFile(folder + 'index.html', html.replace('<script nonce=', () => script + '<script nonce='));
+  const previewOrigin = 'http://127.0.0.1:4173';
+  // Local synthetic fixtures only: production still uses separate fixed origins.
+  // Relocate the public reader so visual QA never needs an Owner login or a model.
+  await mkdir(folder + 'embodied-ai-atlas/', {recursive: true});
+  await cp(ROOT + 'dist/', folder + 'embodied-ai-atlas/', {recursive:true});
+  const publicHTML = (await readFile(ROOT + 'dist/index.html', 'utf8')).replace(/(<script id="atlas-data" type="application\/json">)([\s\S]*?)(<\/script>)/,
+    (_, start, data, end) => start + JSON.stringify({...JSON.parse(data), private_agent_origin:previewOrigin}) + end);
+  await writeFile(folder + 'embodied-ai-atlas/index.html', publicHTML);
+  await writeFile(folder + 'index.html', html.replace('<script nonce=', () => script + '<script nonce=').replaceAll('https://www.yuechuanhou.com/embodied-ai-atlas/', previewOrigin + '/embodied-ai-atlas/'));
   await mkdir(ROOT + '.openai', {recursive: true});
   await writeFile(ROOT + '.openai/hosting.json', JSON.stringify({static: {directory: '.preview/workbench-ui'}}));
   console.log('Synthetic workbench preview built; all API calls are local fixtures.');

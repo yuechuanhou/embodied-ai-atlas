@@ -1,4 +1,7 @@
 /* Atlas system views: Tiffany accents, neutral reading surfaces, portable navigation. */
+.orbit-section-ask{float:right;margin-left:14px;border:1px solid var(--line);border-radius:7px;background:var(--paper);color:var(--accent);font:inherit;font-size:12px;font-weight:400;line-height:1.4;padding:5px 8px;cursor:pointer}
+.orbit-section-ask:hover{background:var(--accent-soft)}
+@media(max-width:800px){.orbit-section-ask{min-height:36px;margin-left:8px}}
 [hidden]{display:none!important}
 .app-shell.sidebar-collapsed{--sidebar-width:0px}
 .topbar-left{display:flex;gap:12px;align-items:center;min-width:0;flex:1;overflow:hidden}

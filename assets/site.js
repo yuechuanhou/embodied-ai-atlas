@@ -9,6 +9,9 @@
   const contextById = Object.fromEntries(ARCH.contexts.map(c => [c.id, c]));
   const topicById = Object.fromEntries(DATA.topics.map(t => [t.id, t]));
   const app = document.getElementById('app');
+  const agentName = DATA.site.agent_name || 'Orbit';
+  const readerMode = new URLSearchParams(location.search).get('atlas_reader') === '1' && window.parent !== window;
+  let visibleAnchor = '';
   let sidebarOpen = false, searchOpen = false, searchResults = [], searchSelected = 0;
   const groupState = new Map(), positions = new Map();
   let searchOpener = null;
@@ -135,7 +138,7 @@
       '<nav class="breadcrumbs" aria-label="Breadcrumb"><a href="?page=home">Atlas</a><span>/</span>'+
       (domain?'<a class="breadcrumb-domain" href="'+eattr(linkView('domain',domain.id))+'">'+esc(domain.name)+'</a><span>/</span>':'')+
       '<strong aria-current="page">' + esc(title) + '</strong></nav></div>' +
-      '<div class="top-actions">'+(DATA.private_agent_origin?'<a id="open-private-agent" class="private-agent-link" href="'+eattr(DATA.private_agent_origin)+'" target="_blank" rel="noopener noreferrer" aria-label="打开私人 Agent 工作台"><svg class="brand-glyph" viewBox="0 0 64 64" aria-hidden="true"><use href="#atlas-brand-mark"></use></svg><span>Atlas Agent</span></a>':'')+'<button class="search-trigger" id="open-search" aria-label="Search knowledge">' + glyph.search +
+      '<div class="top-actions">'+(DATA.private_agent_origin?'<a id="open-private-agent" class="private-agent-link" href="'+eattr(DATA.private_agent_origin)+'" rel="noopener noreferrer" aria-label="向 '+eattr(agentName)+' 提问"><svg class="brand-glyph" viewBox="0 0 64 64" aria-hidden="true"><use href="#atlas-brand-mark"></use></svg><span>问 '+esc(agentName)+'</span></a>':'')+'<button class="search-trigger" id="open-search" aria-label="Search knowledge">' + glyph.search +
       '<span>Search knowledge</span><kbd>/</kbd></button><button class="icon-btn" id="theme-button" aria-label="Toggle theme">' +
       glyph.theme + '</button></div></header>';
   }
@@ -385,10 +388,15 @@
     const title=r.type==='article'?byId[r.id].title:r.type==='home'?'System Overview':r.type==='stage'?stageById[r.id].title:
       r.type==='loop'?loopById[r.id].title:r.type==='domain'?sections[r.id].name:contextById[r.id].title;
     document.title=title+' · Embodied AI Atlas';
-    syncNavigation();applyReadingFocus(r);
+    syncNavigation();applyReadingFocus(r); visibleAnchor = '';
+    if(DATA.private_agent_origin && r.type==='article') for(const heading of app.querySelectorAll('.content-body h2[id],.content-body h3[id]')) {
+      const ask=document.createElement('button'); ask.type='button'; ask.className='orbit-section-ask'; ask.dataset.orbitAsk=heading.id;
+      ask.textContent='问 '+agentName;ask.setAttribute('aria-label','向 '+agentName+' 询问这一节');heading.append(ask);
+    }
     if(options.moveFocus){const h=app.querySelector('main h1');h?.setAttribute('tabindex','-1');h?.focus({preventScroll:true});}
     restoreReadingPosition(options.scroll);
     notifyAgentContext();
+    notifyReader('context');
   }
   function notifyAgentContext(){
     if(!DATA.agent_preview)return;
@@ -399,6 +407,29 @@
     const topic=current.type==='article'?DATA.topics.find(t=>t.article===current.id&&t.anchor===anchor):null;
     document.dispatchEvent(new CustomEvent('atlas:reading-context',{detail:{...current,anchor,topic_id:topic?.id||null}}));
   }
+  function readingData(anchor) {
+    const current=route(),context={};
+    if(current.type==='article') {
+      context.article_id=current.id;
+      if(anchor===undefined) {try{anchor=decodeURIComponent(location.hash.slice(1));}catch(_){anchor='';}anchor=visibleAnchor||anchor;}
+      if(byId[current.id].toc.some(h=>h.id===anchor)) {context.anchor=anchor;const topic=DATA.topics.find(t=>t.article===current.id&&t.anchor===anchor);if(topic)context.topic_id=topic.id;}
+      if(current.context)context.view=current.context;
+    } else if(current.type!=='home')context.view=current.type+':'+current.id;
+    return context;
+  }
+  function readerLocation() {const url=new URL(location.href);url.searchParams.delete('atlas_reader');return url.href;}
+  function notifyReader(type,anchor,top) {
+    if(!readerMode||!DATA.private_agent_origin)return;
+    const context=readingData(anchor),article=byId[context.article_id];
+    const label=article?article.title+(context.anchor?' · '+(article.toc.find(h=>h.id===context.anchor)?.title||context.anchor):''):'Atlas · '+(context.view||'系统总览');
+    window.parent.postMessage({channel:'atlas-reader',version:1,type,context,label,url:readerLocation(),...(Number.isFinite(top)?{top}:{})},DATA.private_agent_origin);
+  }
+  function askOrbit(event,anchor) {
+    const context=readingData(anchor);
+    if(readerMode) {event.preventDefault();notifyReader('ask',anchor,anchor?document.getElementById(anchor)?.getBoundingClientRect().bottom:80);return;}
+    const url=DATA.private_agent_origin+'/#'+encodeURIComponent(JSON.stringify({...context,mode:'companion',reader_url:readerLocation()}));
+    const link=event.target.closest('#open-private-agent');if(link)link.href=url;else location.assign(url);
+  }
   function rememberPosition() {
     if(location.protocol==='file:')return;
     positions.set(location.href,window.scrollY);
@@ -407,10 +438,11 @@
   function navigate(url,restore=false) {
     if(url.pathname!==location.pathname)return;
     if(location.protocol==='file:'){location.href=url.href;return;}
+    if(readerMode)url.searchParams.set('atlas_reader','1');
     rememberPosition();
     const samePage=url.search===location.search;
     history.pushState({atlasScroll:restore?positions.get(url.href)||0:undefined},'',url.href);
-    if(samePage&&url.hash){applyReadingFocus(route());restoreReadingPosition();}
+    if(samePage&&url.hash){applyReadingFocus(route());restoreReadingPosition();notifyReader('context');}
     else render({moveFocus:true,scroll:restore?positions.get(url.href)||0:undefined});
   }
 
@@ -483,19 +515,10 @@
   },true);
   app.addEventListener('click',event=>{
     const privateLink=event.target.closest('#open-private-agent');
-    if(privateLink){
-      const current=route(),context={};
-      if(current.type==='article'){
-        context.article_id=current.id;
-        let anchor='';try{anchor=decodeURIComponent(location.hash.slice(1));}catch(_){}
-        const heading=document.getElementById(anchor)?.closest('h1,h2,h3,h4,h5,h6');
-        if(heading){context.anchor=heading.id;const topic=DATA.topics.find(t=>t.article===current.id&&t.anchor===heading.id);if(topic)context.topic_id=topic.id;}
-        if(current.context)context.view=current.context;
-      }else if(current.type!=='home')context.view=current.type+':'+current.id;
-      privateLink.href=DATA.private_agent_origin+'/#'+encodeURIComponent(JSON.stringify(context));return;
-    }
+    if(privateLink){askOrbit(event);return;}
+    const sectionAsk=event.target.closest('[data-orbit-ask]');if(sectionAsk){askOrbit(event,sectionAsk.dataset.orbitAsk);return;}
     if(event.target.closest('#open-search')){openSearch();return;}
-    if(event.target.closest('#theme-button')){setTheme(activeTheme==='light'?'dark':'light');return;}
+    if(event.target.closest('#theme-button')){setTheme(activeTheme==='light'?'dark':'light');if(readerMode&&DATA.private_agent_origin)window.parent.postMessage({channel:'atlas-reader',version:1,type:'theme',theme:activeTheme},DATA.private_agent_origin);return;}
     if(event.target.closest('[data-nav-toggle]')){
       if(narrowScreen()){
         if(sidebarOpen)closeNavigation();else{sidebarOpen=true;syncNavigation(true);}
@@ -550,7 +573,25 @@
   });
   window.addEventListener('popstate',event=>render({scroll:event.state?.atlasScroll,moveFocus:true}));
   window.addEventListener('pagehide',rememberPosition);
-  window.addEventListener('hashchange',()=>{applyReadingFocus(route());notifyAgentContext();});
+  window.addEventListener('hashchange',()=>{applyReadingFocus(route());notifyAgentContext();notifyReader('context');});
+  if(readerMode&&DATA.private_agent_origin) {
+    window.addEventListener('message',event=>{
+      if(event.source!==window.parent||event.origin!==DATA.private_agent_origin)return;
+      const data=event.data;if(!data||data.channel!=='atlas-reader'||data.version!==1)return;
+      if(data.type==='theme'&&['light','dark'].includes(data.theme)){setTheme(data.theme);return;}
+      if(data.type!=='navigate'||typeof data.url!=='string'||data.url.length>3000)return;
+      let url;try{url=new URL(data.url);}catch(_){return;}
+      if(url.origin!==location.origin||url.pathname!==location.pathname||url.username||url.password)return;
+      if([...url.searchParams.keys()].some(k=>!['page','view','id','context','atlas_reader'].includes(k)))return;
+      navigate(url);
+    });
+    let scheduled=false;
+    window.addEventListener('scroll',()=>{if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;if(route().type!=='article')return;
+      const headings=[...app.querySelectorAll('.content-body h2[id],.content-body h3[id]')];let next=headings[0]?.id||'';
+      for(const heading of headings)if(heading.getBoundingClientRect().top<=160)next=heading.id;
+      if(next!==visibleAnchor){visibleAnchor=next;notifyReader('context',next);}
+    });},{passive:true});
+  }
   if(DATA.agent_preview){
     document.addEventListener('atlas:context-request',notifyAgentContext);
     document.addEventListener('atlas:agent-navigate',event=>{
@@ -569,4 +610,5 @@
   window.addEventListener('resize',()=>requestAnimationFrame(drawLifecycleEdges));
   history.scrollRestoration='manual';
   render();
+  notifyReader('ready');
 })();

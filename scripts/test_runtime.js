@@ -9,7 +9,7 @@ assert(data, 'Atlas payload not present');
 const source = fs.readFileSync('assets/site.js', 'utf8');
 
 function render(search) {
-  const app = {innerHTML: '', addEventListener(){}};
+  const app = {innerHTML: '', addEventListener(){}, querySelectorAll(){return [];}};
   const url = new URL('https://atlas.example/embodied-ai-atlas/' + search);
   const doc = {
     title: '',

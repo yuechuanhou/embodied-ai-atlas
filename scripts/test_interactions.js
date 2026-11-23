@@ -17,6 +17,7 @@ function boot(path='?page=home',options={}){
     w.requestAnimationFrame=callback=>callback();
     w.HTMLElement.prototype.scrollIntoView=function(){w.lastScrolled=this.id;};
     w.matchMedia=()=>({matches:!!options.narrow,addEventListener(){}});
+    if(options.parent)Object.defineProperty(w,'parent',{value:options.parent});
     if(options.collapsed!==undefined)w.localStorage.setItem('atlasSidebarCollapsed',String(options.collapsed));
   }});
   const w=dom.window,d=w.document;
@@ -35,8 +36,26 @@ test('private workbench handoff carries only canonical reading IDs in a fragment
   link.addEventListener('click',event=>event.preventDefault());link.click();
   const url=new URL(link.href),context=JSON.parse(decodeURIComponent(url.hash.slice(1)));
   assert.equal(url.origin,'https://agent.example.test');assert.equal(url.search,'');
-  assert.deepEqual(context,{article_id:'sensors-and-estimation',anchor:'vio-visual-inertial-odometry',topic_id:'vio',view:'stage:03'});
+  assert.deepEqual(context,{article_id:'sensors-and-estimation',anchor:'vio-visual-inertial-odometry',topic_id:'vio',view:'stage:03',mode:'companion',reader_url:'https://atlas.example/embodied-ai-atlas/?page=sensors-and-estimation&context=stage%3A03#vio-visual-inertial-odometry'});
+  assert.equal(link.target,'');assert(link.textContent.includes('Orbit'));
   assert.equal(w.location.hostname,'atlas.example');assert.equal(link.rel,'noopener noreferrer');dom.window.close();
+});
+
+test('authenticated reader bridge accepts only the configured parent and never navigates outside Atlas',()=>{
+  const parent=new JSDOM('',{url:'https://agent.example.test'}).window,messages=[];
+  parent.postMessage=(data,origin)=>messages.push({data,origin});
+  const ui=boot('?page=sensors-and-estimation&atlas_reader=1',{agentOrigin:'https://agent.example.test',parent});
+  const send=(data,origin='https://agent.example.test',source=parent)=>ui.w.dispatchEvent(new ui.w.MessageEvent('message',{data:{channel:'atlas-reader',version:1,...data},origin,source}));
+  assert(messages.some(m=>m.data.type==='ready'));assert(messages.every(m=>m.origin==='https://agent.example.test'));
+  ui.d.querySelector('[data-orbit-ask]').click();assert(messages.some(m=>m.data.type==='ask'&&m.data.context.article_id==='sensors-and-estimation'));
+  assert(messages.every(m=>!JSON.stringify(m.data).includes('session_id')));
+  const before=ui.w.location.href;
+  send({type:'navigate',url:'https://evil.example/embodied-ai-atlas/'});assert.equal(ui.w.location.href,before);
+  send({type:'navigate',url:'https://atlas.example/embodied-ai-atlas/?page=data-recipe'},'https://evil.example');assert.equal(ui.w.location.href,before);
+  send({type:'navigate',url:'https://atlas.example/embodied-ai-atlas/?page=data-recipe'},'https://agent.example.test',null);assert.equal(ui.w.location.href,before);
+  send({type:'navigate',url:'https://atlas.example/embodied-ai-atlas/?page=data-recipe'});assert(ui.w.location.search.includes('page=data-recipe'));assert(ui.w.location.search.includes('atlas_reader=1'));
+  send({type:'theme',theme:'dark'});assert.equal(ui.d.documentElement.dataset.theme,'dark');
+  ui.dom.window.close();parent.close();
 });
 
 test('desktop sidebar hides, releases its column, persists and reopens',()=>{
