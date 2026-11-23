@@ -60,7 +60,17 @@ Old `?page=data-recipe` links remain valid. Views use `?view=stage&id=04`, `?vie
 
 PR validation runs without deployment, including stacked PRs. Production deployment runs only from main or an explicitly requested workflow dispatch. Review branches and PRs before merging; main merges trigger GitHub Pages.
 
-## Personal Agent foundation (not deployed)
+## Orbit private learning assistant
+
+The Owner-only Worker and D1 are in use. Orbit supports reading companion, sidebar
+and research modes, Claude answers, private candidates, conversation rename/pin/
+delete/export, and versioned candidate review. Production deployment evidence and
+pending device, branch-protection and recovery checks are centralized in
+[operations readiness](agent/operations/README.md); the feature roadmap is
+[AGENT_ROADMAP.md](AGENT_ROADMAP.md).
+
+Formal knowledge publication is not deployed. The sections below distinguish the
+offline proposal foundation and simulated demo from the actual private runtime.
 
 [AGENT_ARCHITECTURE.md](AGENT_ARCHITECTURE.md) maps the agreed requirements to
 design principles, module boundaries, implementation order and acceptance criteria.
@@ -71,7 +81,7 @@ canonical placement and concrete Owner confirmation before public changes.
 `agent/change_validation.py` provide offline proposal integrity, approval binding,
 semantic metadata checks and an isolated candidate build. They are not an authenticated
 API, technical fact review or publisher. [Private DB notes](agent/db/README.md)
-explain the locally tested migration, ownership, retention and recovery obligations.
+explain migration, ownership, retention and recovery obligations.
 `requirements-dev.txt` adds the JSON Schema checker for these tests; ordinary static
 builds still require only `requirements.txt`. No online chat, cloud resources, keys or
 automatic publishing are configured by this foundation.
@@ -84,9 +94,10 @@ use clearly labeled simulations. Chats stay in memory and disappear on reload.
 
 The [private runtime](agent/runtime/README.md) implements Worker-side Owner JWT
 checks, D1 sessions/candidates, verified Pages snapshot synchronization and optional
-OpenAI/Claude adapters. Its keys, model choice, limits, account and real login are
-not configured or deployed. [Deployment preparation](agent/runtime/DEPLOYMENT.md)
-keeps these steps explicit. Private runtime builds/tests use Node 22.12+:
+OpenAI/Claude adapters. Production uses separately configured private credentials
+and model limits, never repository values. [Deployment preparation](agent/runtime/DEPLOYMENT.md)
+describes initial setup; use [the update flow](agent/runtime/UPDATE.md) for an existing
+Worker. Private runtime builds/tests use Node 22.12+:
 
 ```sh
 npm ci --ignore-scripts --prefix agent/runtime

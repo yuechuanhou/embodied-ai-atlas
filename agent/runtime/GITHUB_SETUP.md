@@ -1,6 +1,6 @@
 # GitHub 执行的 D1 首次接入
 
-状态：2026-11-21 已在受保护的 GitHub Environment 配置凭据、运行真实云端工作流、创建专用数据库并通过两份迁移及准确 UUID 的只读复核。Access 与 Worker 尚未完成上线验收；后续见 [Worker 首次创建流程](WORKER_SETUP.md)。Cloudflare 账号在 Owner 自己的浏览器可登录，当前云端浏览器登录失败；随后设备授权的凭据接收又被执行环境网络策略阻止。不能将“Owner 已在授权页同意”记作当前环境已登录。
+历史接入记录：2026-11-21 已在受保护的 GitHub Environment 配置凭据、运行真实云端工作流、创建专用数据库并通过两份迁移及准确 UUID 的只读复核。之后 Owner-only Worker、Access 和 Claude 已接入；最新部署与待验收项见 [运行验收与恢复](../operations/README.md)。以下是首次接入流程，不应用来重建已有数据库。Cloudflare 在 Owner 自己的浏览器可登录，早期云端浏览器与设备授权接收遇到限制；不能将“Owner 已在授权页同意”记作当前执行环境已登录。
 
 这份流程从 GitHub runner 访问 Cloudflare 官方 API，是独立的部署执行方式。无需将浏览器会话、密码、OAuth 回调或 API token 发到聊天。旧设备授权若仍显示在账号授权列表中，可在新方式验证后由 Owner 撤销；本流程不会替用户修改账号授权。
 

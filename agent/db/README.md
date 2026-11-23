@@ -10,7 +10,9 @@ No production/preview credentials or account settings are included here.
 transaction guards, usage reservations and derived snapshot/sync state. Both migrations
 are exercised in a local workerd/D1 instance by `agent/runtime/` tests. Actual
 migration records must be checked in the selected deployment. Runtime HTTP calls are bounded requests,
-not durable publishing Workflows. Retention and cloud recovery still need real settings.
+not durable publishing Workflows. Actual recovery windows and an isolated recovery
+drill are tracked in [operations readiness](../operations/README.md). A current
+Time Travel bookmark is not evidence that an export or restore has been tested.
 
 ## Data ownership and normalization
 
@@ -96,8 +98,10 @@ follow [CONTENT_CHANGE_POLICY.md](../../CONTENT_CHANGE_POLICY.md). Explicit
 retention periods for chats, candidates, evidence and audit metadata still require
 a separate decision; no scheduled deletion is silently enabled by this migration.
 
-Export is Owner-scoped and includes schema version, source provenance, proposals,
-approvals and job results. Never export API keys, Access cookies or App secrets.
+The implemented per-session export is Owner-scoped and includes its schema version,
+messages, candidates, candidate source records and request statuses. It is not a full
+database backup and does not export all independent proposals, approvals or jobs.
+Never export API keys, Access cookies or App secrets.
 Secrets belong in deployment secret storage, not these tables or log fields.
 
 Deleting a session cascades messages, its candidates and candidate evidence joins;
