@@ -128,7 +128,9 @@ for article in pages:
 
 payload = {"site": manifest["site"], "sections": manifest["sections"], "pages": pages,
            "architecture": architecture, "topics": topics, "relations": relations, "focus": focus}
-private_agent_origin = os.environ.get('ATLAS_AGENT_ORIGIN', '')
+private_agent_origin = os.environ.get('ATLAS_AGENT_ORIGIN') or manifest['site'].get('private_agent_origin', '')
+if private_agent_origin == 'disabled':
+    private_agent_origin = ''
 if private_agent_origin:
     origin = urlsplit(private_agent_origin)
     if origin.scheme != 'https' or not origin.hostname or origin.username or origin.password or origin.path or origin.query or origin.fragment:

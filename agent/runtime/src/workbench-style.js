@@ -1102,6 +1102,61 @@ textarea {
     display:none
   }
 }
+/* The same private chat DOM survives every layout change. */
+#reader-shell {position:fixed;inset:0;background:var(--bg)}
+#atlas-reader {width:100%;height:100%;border:0;display:block;background:var(--bg)}
+#reader-loading {position:absolute;inset:80px 24px auto;max-width:560px;margin:auto;padding:18px;background:var(--paper);border:1px solid var(--line);border-radius:12px;z-index:2}
+#reader-loading p {margin:0 0 10px}
+#reader-loading a {margin-left:12px;font-size:14px}
+#reader-launch {position:fixed;right:24px;bottom:24px;z-index:5;display:flex;align-items:center;gap:9px;border:1px solid var(--line);box-shadow:var(--shadow);background:var(--paper);padding:11px 16px;color:var(--accent)}
+#reader-launch svg {width:30px;height:30px}
+.orbit-toolbar {min-height:48px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 15px;border-bottom:1px solid var(--line);flex:none}
+.orbit-toolbar>strong {font-size:14px;color:var(--accent);font-weight:600;margin-right:auto}
+.orbit-toolbar nav {display:flex;gap:3px}
+.orbit-toolbar nav button {font-size:13px;padding:5px 9px}
+.orbit-toolbar button[aria-pressed=true] {background:var(--accent-soft);color:var(--accent)}
+.orbit-toolbar .icon-button {height:30px;width:30px;padding:6px}
+#return-reading {font-size:12px;padding:5px}
+#conversation-picker {display:flex;gap:7px;padding:0;min-width:0;text-align:left;max-width:100%;font-size:16px;font-weight:600}
+#conversation-picker>span:first-child {overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reading-scope {padding:8px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);flex:none}
+.reading-scope>span {max-width:100%;overflow-wrap:anywhere}
+.reading-scope button {color:var(--accent);font-size:12px;padding:2px 5px}
+html[data-reading-mode=research] #reader-shell {display:none}
+html[data-reading-mode=off] #app {visibility:hidden;pointer-events:none}
+html[data-reading-mode=companion] #app,html[data-reading-mode=sidebar] #app {position:fixed;right:0;z-index:10;display:grid;grid-template-columns:minmax(0,1fr)!important;width:min(450px,47vw);height:100dvh;background:var(--paper);border-left:1px solid var(--line);transition:width .18s ease}
+html[data-reading-mode=companion] #app {right:24px;top:var(--companion-top,110px);width:min(420px,calc(100vw - 48px));height:min(560px,calc(100dvh - var(--companion-top,110px) - 16px));min-height:320px;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 50px #102b3824}
+html[data-reading-mode=companion] .private-chat {border-radius:inherit;overflow:hidden}
+html[data-reading-mode=sidebar] #reader-shell {right:min(450px,47vw)}
+html[data-reading-mode=companion] .chat-header,html[data-reading-mode=sidebar] .chat-header {padding:10px 13px;min-height:70px;height:auto;gap:6px}
+html:not([data-reading-mode=research]) .title-line h1 {font-size:14px}
+html:not([data-reading-mode=research]) #conversation-picker {font-size:14px}
+html:not([data-reading-mode=research]) .status-line {font-size:11px}
+html:not([data-reading-mode=research]) .header-tools {gap:2px}
+html:not([data-reading-mode=research]) #toggle-history {display:none}
+html:not([data-reading-mode=research]) .history,html:not([data-reading-mode=research]) .drafts {position:fixed;top:74px;bottom:24px;right:16px;width:min(340px,calc(100vw - 32px));height:auto;max-height:calc(100dvh - 98px);z-index:45;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);visibility:visible}
+html:not([data-reading-mode=research]) .history-closed .history,html:not([data-reading-mode=research]) .candidates-closed .drafts {visibility:hidden}
+html:not([data-reading-mode=research]) .history .mobile-close {display:inline-flex}
+html:not([data-reading-mode=research]) .scrim {position:fixed;inset:0;background:#10232c24;z-index:40;width:100vw;height:100dvh;border-radius:0;display:block}
+html:not([data-reading-mode=research]) .history-closed.candidates-closed .scrim {display:none}
+html:not([data-reading-mode=research]) .chat-scroll {padding-inline:16px}
+html:not([data-reading-mode=research]) .private-form {padding:9px 12px 10px}
+html:not([data-reading-mode=research]) .feedback {padding-inline:16px}
+html:not([data-reading-mode=research]) .conversation {padding-top:15px}
+html:not([data-reading-mode=research]) .empty-state {margin:22px 0}
+html:not([data-reading-mode=research]) .empty-state h2 {font-size:22px}
+html:not([data-reading-mode=research]) .empty-mark {display:none}
+html:not([data-reading-mode=research]) .message-content {font-size:15px;line-height:1.8}
+html:not([data-reading-mode=research]) .message.assistant>.message-avatar {position:static;margin-bottom:8px}
+@media(max-width:760px) {
+  html[data-reading-mode=sidebar] #app {width:100vw;border:0}
+  html[data-reading-mode=sidebar] #reader-shell {right:0}
+  html[data-reading-mode=companion] #app {right:8px;top:auto;bottom:8px;width:calc(100vw - 16px);height:min(72dvh,640px);min-height:280px}
+  .orbit-toolbar {padding:7px 11px;gap:5px}
+  .orbit-toolbar nav button {min-height:36px;padding:5px 8px}
+  .reading-scope {padding:7px 13px;gap:6px}
+  #reader-launch {right:16px;bottom:16px}
+}
 @media(prefers-reduced-motion:reduce) {
   *,*::before,*::after {
     animation:none!important;

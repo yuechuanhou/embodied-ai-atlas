@@ -1,5 +1,6 @@
 """Regression checks for content growth, invalid metadata and heading migrations."""
 import json
+import os
 import hashlib
 import pathlib
 import re
@@ -47,6 +48,17 @@ class ContentContracts(unittest.TestCase):
         self.run_script("scripts/validate_content.py")
         self.run_script("build.py")
         self.run_script("scripts/smoke_test.py")
+
+    def test_public_agent_entry_handles_empty_pages_variable_override_and_disable(self):
+        default = self.read('content/manifest.json')['site']['private_agent_origin']
+        for override, expected in [('', default), ('https://agent.example.test', 'https://agent.example.test'), ('disabled', None)]:
+            with self.subTest(override=override):
+                result = subprocess.run([sys.executable, 'build.py'], cwd=self.root,
+                                        env={**os.environ, 'ATLAS_AGENT_ORIGIN': override}, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                built = (self.root / 'dist/index.html').read_text()
+                payload = json.loads(re.search(r'<script id="atlas-data" type="application/json">(.+?)</script>', built, re.S)[1])
+                self.assertEqual(payload.get('private_agent_origin'), expected)
 
     def test_heading_rename_keeps_topic_link(self):
         old = "VIO（Visual-Inertial Odometry）"

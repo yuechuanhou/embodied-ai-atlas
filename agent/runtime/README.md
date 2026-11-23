@@ -1,5 +1,7 @@
 # Atlas private runtime — implementation v0.1
 
+Orbit 的伴读、阅读侧栏与研究模式使用同一份会话界面，保留已有 pin/rename/delete。公开阅读与私人会话的联动、同源身份边界和部署顺序见 [READING.md](READING.md)。
+
 状态：**Owner 已确认 PR #13 部署后的 Claude 问答、私人候选生成以及刷新后恢复对话和候选通过验收**。本分支继续改进工作台阅读、会话管理与发送反馈，合并和线上代码更新仍须 Owner 确认。更新方式见 [UPDATE.md](UPDATE.md)。此目录与公开 Pages 阅读网站分离，不属于 Personal OS 主应用；仍没有 GitHub 写入或正式发布接口。
 
 受环境网络限制时，[GitHub D1 首次接入](GITHUB_SETUP.md) 已在 Owner 配置 Environment Secrets、审阅合并并手动启动后成功运行。[Worker 首次创建流程](WORKER_SETUP.md) 仅负责初次创建；已接入的线上 Worker 使用独立的 [代码更新流程](UPDATE.md)，不随普通推送部署。

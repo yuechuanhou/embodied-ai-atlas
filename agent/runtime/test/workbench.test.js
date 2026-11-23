@@ -5,12 +5,22 @@ import {JSDOM, VirtualConsole} from 'jsdom';
 import {harness, ORIGIN} from './helpers.js';
 import {renderMarkdown} from '../src/markdown.js';
 import {candidateView} from '../src/session-view.js';
+import {readerURL, readingContext} from '../src/reading-view.js';
 
 const enabled = {MODEL_PROVIDER: 'anthropic', MODEL_NAME: 'synthetic-test-model', MODEL_API_KEY: 'synthetic-secret', DAILY_CALL_LIMIT: '10', DAILY_TOKEN_LIMIT: '200000'};
+
+test('reader destinations and reading metadata are bounded canonical public values', () => {
+  assert.equal(readerURL('https://evil.example/embodied-ai-atlas/'),null);
+  assert.equal(readerURL('https://www.yuechuanhou.com/other/'),null);
+  assert.equal(readerURL('?page=valid&session_id=private'),null);
+  assert.equal(readerURL('javascript:alert(1)'),null);
+  assert(readerURL('?page=sensors-and-estimation#vio').href.includes('atlas_reader=1'));
+  assert.deepEqual(readingContext({article_id:'a',session_id:'private',secret:'private',anchor:'bad\nvalue'}),{article_id:'a'});
+});
 async function until(check) {for (let i = 0; i < 400 && !check(); i++) await new Promise(r => setTimeout(r, 10)); assert(check());}
-async function open(t, h, intercept = null) {
+async function open(t, h, intercept = null, url = ORIGIN) {
   const errors = [], vc = new VirtualConsole(); vc.on('jsdomError', e => errors.push(e.message));
-  const dom = new JSDOM((await h.request('/')).data, {url: ORIGIN, runScripts: 'dangerously', virtualConsole: vc, beforeParse(w) {
+  const dom = new JSDOM((await h.request('/')).data, {url, runScripts: 'dangerously', virtualConsole: vc, beforeParse(w) {
     w.HTMLDialogElement.prototype.showModal = function () {this.open = true;};
     w.HTMLDialogElement.prototype.close = function () {this.open = false; this.dispatchEvent(new w.Event('close'));};
     w.fetch = async (url, init = {}) => {
@@ -244,4 +254,94 @@ test('failed pin writes keep the list and current draft intact and never claim a
   await until(() => !ui.d.getElementById('send').disabled && ui.d.getElementById('error').textContent.length > 0);
   assert.equal(ui.d.querySelector('.pinned-mark'), null); assert.equal(ui.d.getElementById('question').value, 'Retain this draft');
   assert((await h.request('/api/sessions')).data.sessions.every(s => s.pinned === false));
+});
+
+function readerEvent(ui, context, options = {}) {
+  const frame=ui.d.getElementById('atlas-reader');
+  ui.dom.window.dispatchEvent(new ui.dom.window.MessageEvent('message', {origin: options.origin || 'https://www.yuechuanhou.com',
+    source: options.source === undefined ? frame.contentWindow : options.source,
+    data:{channel:'atlas-reader',version:1,type:'context',url:'https://www.yuechuanhou.com/embodied-ai-atlas/?page='+encodeURIComponent(context.article_id || 'home'),context,...options.data}}));
+}
+
+test('reading modes keep one conversation and frozen drafts while only trusted reader context changes', async t => {
+  const h=await seededConversations(t),ui=await open(t,h),d=ui.d;
+  const title=d.getElementById('conversation-title').textContent;
+  d.querySelector('[data-reading-mode=companion]').click();
+  const original={article_id:'sensors-and-estimation',anchor:'vio-visual-inertial-odometry',topic_id:'vio'};
+  readerEvent(ui,original);assert(d.getElementById('reading-scope-name').textContent.includes('sensors-and-estimation'));
+  d.getElementById('question').value='Keep this draft';d.getElementById('question').dispatchEvent(new ui.dom.window.Event('input',{bubbles:true}));
+  readerEvent(ui,{article_id:'data-recipe'});assert(d.getElementById('reading-scope-name').textContent.includes('sensors-and-estimation'));
+  assert.equal(d.getElementById('use-current-reading').hidden,false);
+  for(const mode of ['sidebar','research','companion'])d.querySelector('[data-reading-mode='+mode+']').click();
+  assert.equal(d.getElementById('conversation-title').textContent,title);assert.equal(d.getElementById('question').value,'Keep this draft');
+  d.getElementById('hide-orbit').click();assert.equal(ui.dom.window.document.documentElement.dataset.readingMode,'off');
+  d.getElementById('reader-launch').click();assert.equal(d.getElementById('question').value,'Keep this draft');
+  readerEvent(ui,{article_id:'untrusted'},{origin:'https://evil.example'});
+  readerEvent(ui,{article_id:'untrusted'},{source:null});
+  assert(!d.getElementById('reading-scope-name').textContent.includes('untrusted'));
+  d.getElementById('use-current-reading').click();assert(d.getElementById('reading-scope-name').textContent.includes('data-recipe'));
+  assert.equal(h.world.modelCalls.length,0);assert.deepEqual(ui.errors,[]);
+});
+
+test('manual conversation switching restores each draft without navigating the reader, with menu actions in all modes', async t => {
+  const h=await seededConversations(t),ui=await open(t,h),d=ui.d;
+  d.querySelector('[data-reading-mode=sidebar]').click();
+  const first=d.querySelector('.session-item[aria-current=true]').dataset.sessionId;
+  const other=[...d.querySelectorAll('.session-item')].find(b=>b.dataset.sessionId!==first).dataset.sessionId;
+  d.getElementById('question').value='My first draft';d.getElementById('question').dispatchEvent(new ui.dom.window.Event('input',{bubbles:true}));
+  const reader=d.getElementById('atlas-reader').src;
+  d.getElementById('conversation-picker').click();d.querySelector('.session-item[data-session-id="'+other+'"]').click();
+  await until(()=>d.querySelector('.session-item[aria-current=true]')?.dataset.sessionId===other);
+  assert.equal(d.getElementById('question').value,'');assert.equal(d.getElementById('atlas-reader').src,reader);
+  d.getElementById('conversation-picker').click();d.querySelector('.session-item[data-session-id="'+first+'"]').click();
+  await until(()=>d.querySelector('.session-item[aria-current=true]')?.dataset.sessionId===first);
+  assert.equal(d.getElementById('question').value,'My first draft');
+  for(const mode of ['companion','sidebar','research']) {
+    d.querySelector('[data-reading-mode='+mode+']').click();
+    if(d.getElementById('toggle-history').getAttribute('aria-expanded')==='false')d.getElementById('conversation-picker').click();
+    d.querySelector('.session-actions-trigger[data-session-id="'+other+'"]').click();
+    assert.equal(d.getElementById('session-menu').hidden,false);
+    assert(d.getElementById('menu-rename'));assert(d.getElementById('menu-pin'));
+    d.getElementById('menu-delete').click();assert.equal(d.getElementById('delete-dialog').open,true);
+    d.getElementById('delete-cancel').click();assert.equal((await h.request('/api/sessions/'+other)).status,200);
+  }
+  assert.equal(d.getElementById('question').value,'My first draft');assert.deepEqual(ui.errors,[]);
+});
+
+test('request reading context is captured before session creation and survives subsequent reader navigation', async t => {
+  const h=await harness();t.after(h.dispose);await h.sync();
+  let release;const gate=new Promise(resolve=>release=resolve),bodies=[];
+  const ui=await open(t,h,async(path,init)=>{if(path==='/api/sessions'&&init.method==='POST')await gate;if(path.endsWith('/messages'))bodies.push(JSON.parse(init.body));});
+  const d=ui.d;d.querySelector('[data-reading-mode=companion]').click();
+  readerEvent(ui,{article_id:'sensors-and-estimation',anchor:'vio-visual-inertial-odometry',topic_id:'vio'});
+  d.getElementById('question').value='VIO';ui.submit();
+  readerEvent(ui,{article_id:'data-recipe'});d.querySelector('[data-reading-mode=research]').click();release();
+  await until(()=>!d.getElementById('send').disabled);
+  assert.equal(bodies.length,1);assert.equal(bodies[0].reading_context.article_id,'sensors-and-estimation');
+  assert.equal(bodies[0].reading_context.topic_id,'vio');assert.deepEqual(ui.errors,[]);
+});
+
+test('refresh restores the selected conversation and layout using private IDs without storing draft text in the URL', async t => {
+  const h=await seededConversations(t),sessions=(await h.request('/api/sessions')).data.sessions;
+  const saved={mode:'sidebar',reader_url:'https://www.yuechuanhou.com/embodied-ai-atlas/?page=sensors-and-estimation',article_id:'sensors-and-estimation',session_id:sessions[1].id};
+  const ui=await open(t,h,null,ORIGIN+'/#'+encodeURIComponent(JSON.stringify(saved))),d=ui.d;
+  assert.equal(d.getElementById('conversation-title').textContent,sessions[1].title);
+  assert.equal(ui.dom.window.document.documentElement.dataset.readingMode,'sidebar');
+  d.getElementById('question').value='UnsubmittedPrivateText';d.getElementById('question').dispatchEvent(new ui.dom.window.Event('input'));
+  d.querySelector('[data-reading-mode=research]').click();
+  const href=ui.dom.window.location.href;assert(!href.includes('UnsubmittedPrivateText'));
+  const restored=await open(t,h,null,href);
+  assert.equal(restored.d.getElementById('conversation-title').textContent,sessions[1].title);
+  assert.equal(restored.dom.window.document.documentElement.dataset.readingMode,'research');
+  restored.d.getElementById('return-reading').click();assert.equal(restored.dom.window.document.documentElement.dataset.readingMode,'sidebar');
+  assert.deepEqual(ui.errors,[]);assert.deepEqual(restored.errors,[]);
+});
+
+test('malformed entry fragments fall back to the research workspace without breaking session access', async t => {
+  const h=await harness();t.after(h.dispose);await h.sync();
+  for(const value of [null,[],true,'unexpected']) {
+    const ui=await open(t,h,null,ORIGIN+'/#'+encodeURIComponent(JSON.stringify(value)));
+    assert.equal(ui.dom.window.document.documentElement.dataset.readingMode,'research');
+    assert.equal(ui.d.getElementById('send').disabled,false);assert.deepEqual(ui.errors,[]);
+  }
 });

@@ -15,6 +15,8 @@
 
 ## 保留与校验
 
+Orbit 阅读联动版本须先等待同一提交的公开 Pages 部署成功，再更新 Worker；无需重新创建资源或迁移 D1。首次登录回跳与三种模式的账号验收见 [READING.md](READING.md)。
+
 - 固定账号下只操作上述名称；D1 UUID 与数据库名必须匹配。缺失 Worker 返回错误，不会顺便创建。
 - 只接受当前约定的 D1、身份 Secret、GitHub 只读 Secret、模型 Secret 和四项普通变量；拒绝其他资源绑定。
 - 通过 Cloudflare `keep_bindings` 保留 `secret_text`、`plain_text`、`d1`，不读取 Secret 值，不用仓库模板中的 `MODEL_PROVIDER=disabled` 覆盖线上设置。

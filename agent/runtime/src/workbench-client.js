@@ -1,4 +1,5 @@
 import {renderMarkdown} from './markdown.js';
+import {AGENT_NAME, createReadingView} from './reading-view.js';
 
 const get = id => document.getElementById(id);
 const node = (tag, text = '', cls = '') => {const el = document.createElement(tag); el.textContent = text; if (cls) el.className = cls; return el;};
@@ -33,12 +34,12 @@ function controls() {
   for (const item of get('sessions').querySelectorAll('button')) item.disabled = locked;
   get('composer-hint').textContent = deleting ? '正在删除对话…' : savingSession ? '正在保存对话设置…' : busy ? '回答生成中，可以先写下一条问题' : 'Enter 发送 · Shift + Enter 换行';
 }
-function title(text) {activeTitle = text; get('conversation-title').textContent = text; document.title = text + ' · Atlas';}
+function title(text) {activeTitle = text; get('conversation-title').textContent = text; document.title = text + ' · ' + AGENT_NAME;}
 function scrollBottom() {const el = get('chat-scroll'); el.scrollTop = el.scrollHeight;}
 function avatar() {return get('avatar').content.cloneNode(true);}
 function appendMessage(message, optimistic = false) {
   const el = node('section', '', 'message ' + message.role + (optimistic ? ' just-sent' : ''));
-  el.setAttribute('aria-label', message.role === 'user' ? '你的提问' : 'Atlas 的回答');
+  el.setAttribute('aria-label', message.role === 'user' ? '你的提问' : AGENT_NAME + ' 的回答');
   if (message.role !== 'user') {const mark = node('div', '', 'message-avatar'); mark.setAttribute('aria-hidden', 'true'); mark.append(avatar()); el.append(mark);}
   const body = node('div', '', 'message-content');
   if (message.role === 'user') body.append(node('p', message.body)); else body.append(renderMarkdown(message.body, document));
@@ -56,7 +57,8 @@ function appendMessage(message, optimistic = false) {
 }
 function safeLink(text, href, cls = '') {
   try {const url = new URL(href); if (!['https:', 'http:'].includes(url.protocol)) throw new Error();
-    const link = node('a', text, cls); link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer'; return link;
+    const link = node('a', text, cls); link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer';
+    link.addEventListener('click', event => {if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && reading.navigate(url.href)) event.preventDefault();}); return link;
   } catch {return node('span', text, cls);}
 }
 function candidates(items) {
@@ -113,7 +115,7 @@ function renderSessions() {
     button.append(node('strong', session.title));
     button.setAttribute('aria-label', session.title + (session.pinned ? '，已置顶' : ''));
     button.dataset.sessionId = session.id; button.title = session.title; button.setAttribute('aria-current', String(session.id === active));
-    button.onclick = handle(async () => {await load(session.id); if (innerWidth <= 760) setPanel('history', false);});
+    button.onclick = handle(async () => {await load(session.id); if (innerWidth <= 760 || document.documentElement.dataset.readingMode !== 'research') setPanel('history', false);});
     const row = node('div', '', 'session-row'), trigger = node('button', '', 'session-actions-trigger icon-button');
     trigger.type = 'button'; trigger.dataset.sessionId = session.id;
     trigger.setAttribute('aria-label', '对话操作：' + session.title); trigger.title = '对话操作';
@@ -126,10 +128,12 @@ function renderSessions() {
 }
 async function load(id, duringSend = false) {
   if ((busy || deleting || savingSession) && !duringSend) return;
+  if (!duringSend) reading.remember(active);
   closeSessionMenu(false);
   const token = ++loadToken, data = await api('/api/sessions/' + id);
   if (token !== loadToken) return;
   active = id; title(data.session.title); get('messages').replaceChildren(); get('error').textContent = ''; get('empty-state').hidden = !!data.messages.length;
+  if (!duringSend) {reading.restore(id); autosize();}
   for (const message of data.messages) appendMessage(message);
   candidates(data.candidates);
   const request = retry?.session === id ? data.requests.find(r => r.id === retry.body.request_id) : null;
@@ -147,7 +151,7 @@ async function load(id, duringSend = false) {
     if (pending && !busy) report(new Error(pending.error_code || 'request_in_progress'));
   }
   for (const button of get('sessions').querySelectorAll('.session-item')) button.setAttribute('aria-current', String(button.dataset.sessionId === active));
-  controls(); scrollBottom(); return data;
+  controls(); reading.save(); scrollBottom(); return data;
 }
 function autosize() {const input = get('question'); input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight || 52, 160) + 'px';}
 get('question').addEventListener('input', autosize);
@@ -156,13 +160,14 @@ get('form').onsubmit = handle(async event => {
   if (retry?.session === active && retry.message !== message) {
     report(new Error('request_in_progress')); get('check-result').hidden = false; return;
   }
+  const submittedContext = reading.current();
   busy = true; ++loadToken; controls(); get('error').textContent = ''; get('check-result').hidden = true; get('new-attempt').hidden = true;
   // Render and clear before the first await, including creation of a new session.
-  appendMessage({role: 'user', body: message}, true); get('question').value = ''; autosize(); get('waiting').hidden = false;
+  appendMessage({role: 'user', body: message}, true); get('question').value = ''; reading.submitted(); autosize(); get('waiting').hidden = false;
   announce('提问已发送，正在等待回答。'); scrollBottom(); let failure = null;
   try {
     if (!active) {active = (await api('/api/sessions', 'POST', {})).id;}
-    const body = retry && retry.message === message && retry.session === active ? retry.body : {request_id: crypto.randomUUID(), message, reading_context: context};
+    const body = retry && retry.message === message && retry.session === active ? retry.body : {request_id: crypto.randomUUID(), message, reading_context: submittedContext};
     retry = {message, session: active, body};
     await api('/api/sessions/' + active + '/messages', 'POST', body);
     retry = null;
@@ -172,7 +177,7 @@ get('form').onsubmit = handle(async event => {
     try {if (active) {data = await load(active, true); restored = true;} await list();} catch (error) {failure ||= error;}
     busy = false; get('waiting').hidden = true; controls();
     if (failure) {
-      if (!get('question').value && (retry || !restored)) {get('question').value = message; autosize();}
+      if (!get('question').value && (retry || !restored)) {reading.draft(message, submittedContext); autosize();}
       // A read after a lost response may prove the request completed.
       if (retry || !restored) {
         report(failure); get('check-result').hidden = !active;
@@ -187,13 +192,14 @@ get('form').onsubmit = handle(async event => {
 });
 get('question').onkeydown = event => {if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {event.preventDefault(); get('form').requestSubmit();}};
 function clearConversation() {
+  reading.forget(active);
   ++loadToken; active = null; retry = null; title('新对话'); get('messages').replaceChildren(); candidates([]); get('empty-state').hidden = false;
-  get('question').value = ''; autosize(); get('error').textContent = ''; get('check-result').hidden = true; get('new-attempt').hidden = true;
-  for (const button of get('sessions').querySelectorAll('.session-item')) button.setAttribute('aria-current', 'false'); controls();
+  get('question').value = ''; reading.fresh(); autosize(); get('error').textContent = ''; get('check-result').hidden = true; get('new-attempt').hidden = true;
+  for (const button of get('sessions').querySelectorAll('.session-item')) button.setAttribute('aria-current', 'false'); controls(); reading.save();
 }
 get('new-session').onclick = () => {
-  if (busy || deleting || savingSession) return; closeSessionMenu(false); clearConversation();
-  if (innerWidth <= 760) setPanel('history', false); get('question').focus();
+  if (busy || deleting || savingSession) return; closeSessionMenu(false); const previous = active; reading.remember(previous); active = null; clearConversation();
+  if (innerWidth <= 760 || document.documentElement.dataset.readingMode !== 'research') setPanel('history', false); get('question').focus();
 };
 get('more').onclick = handle(() => list(true));
 get('check-result').onclick = handle(async () => {if (active) await load(active);});
@@ -201,7 +207,7 @@ get('new-attempt').onclick = () => {
   if (busy || !retry || !confirm('重新调用模型可能再次计入用量。确认开始新的尝试？')) return;
   // Preserve a different next-question draft instead of silently overwriting it.
   if (get('question').value.trim() && get('question').value.trim() !== retry.message) {get('error').textContent = '输入框中有新的问题，请先保留或清空，再重新发起上次请求。'; return;}
-  get('question').value = retry.message; retry = null; get('form').requestSubmit();
+  reading.draft(retry.message, retry.body.reading_context); retry = null; get('form').requestSubmit();
 };
 get('refresh').onclick = handle(async () => {get('refresh').disabled = true; try {await api('/api/sync', 'POST', {}); await status(); announce('知识内容已同步。');} finally {get('refresh').disabled = false;}});
 get('export').onclick = handle(async () => {
@@ -231,6 +237,7 @@ get('delete-confirm').onclick = async () => {
   try {
     await api('/api/sessions/' + id, 'DELETE');
     sessions = sessions.filter(session => session.id !== id);
+    reading.forget(id);
     if (active === id) clearConversation();
     renderSessions();
     deleting = false; controls(); get('delete-dialog').close(); announce('对话及关联的未入库候选已删除。');
@@ -272,7 +279,7 @@ get('rename-dialog').addEventListener('close', () => {
 });
 
 function focusSessionActions(id) {
-  if (get('app').classList.contains('history-closed')) {get('toggle-history').focus(); return;}
+  if (get('app').classList.contains('history-closed')) {(document.documentElement.dataset.readingMode === 'research' ? get('toggle-history') : get('conversation-picker')).focus(); return;}
   const trigger = [...get('sessions').querySelectorAll('.session-actions-trigger')].find(el => el.dataset.sessionId === id);
   (trigger || get('new-session')).focus();
 }
@@ -311,31 +318,40 @@ get('menu-pin').onclick = async () => {
 document.addEventListener('pointerdown', event => {if (menuTarget && !get('session-menu').contains(event.target) && !menuTrigger.contains(event.target)) closeSessionMenu(false);});
 document.addEventListener('focusin', event => {if (menuTarget && !get('session-menu').contains(event.target) && !menuTrigger.contains(event.target)) closeSessionMenu(false);});
 get('sessions').addEventListener('scroll', () => closeSessionMenu(false));
-get('theme').onclick = () => {const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = theme; try {localStorage.setItem('atlas-workbench-theme', theme);} catch {}};
+get('theme').onclick = () => {const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = theme; try {localStorage.setItem('atlas-workbench-theme', theme);} catch {} reading.theme();};
 try {document.documentElement.dataset.theme = localStorage.getItem('atlas-workbench-theme') || (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');} catch {}
 function setPanel(kind, open) {
   const panel = get(kind === 'history' ? 'history-panel' : 'candidate-panel');
   const returnFocus = !open && panel.contains(document.activeElement);
   const app = get('app'); app.classList.toggle(kind + '-closed', !open);
+  if (open && document.documentElement.dataset.readingMode !== 'research') app.classList.add((kind === 'history' ? 'candidates' : 'history') + '-closed');
   if (open && innerWidth <= 1250 && kind === 'candidates') app.classList.add('history-closed');
   if (open && innerWidth <= 760 && kind === 'history') app.classList.add('candidates-closed');
   updatePanels();
-  if (returnFocus) get('toggle-' + kind).focus();
+  if (returnFocus) (kind === 'history' && document.documentElement.dataset.readingMode !== 'research' ? get('conversation-picker') : get('toggle-' + kind)).focus();
 }
 function updatePanels() {
   closeSessionMenu(false);
   if (innerWidth <= 1250 && !get('app').classList.contains('candidates-closed')) get('app').classList.add('history-closed');
   const historyOpen = !get('app').classList.contains('history-closed'), candidatesOpen = !get('app').classList.contains('candidates-closed');
   get('toggle-history').setAttribute('aria-controls', 'history-panel'); get('toggle-history').setAttribute('aria-expanded', String(historyOpen));
+  get('conversation-picker').setAttribute('aria-expanded', String(historyOpen));
   get('toggle-candidates').setAttribute('aria-expanded', String(candidatesOpen));
   get('history-panel').inert = !historyOpen; get('candidate-panel').inert = !candidatesOpen;
-  const overlay = candidatesOpen && innerWidth <= 1250 ? get('candidate-panel') : historyOpen && innerWidth <= 760 ? get('history-panel') : null;
+  const inReading = document.documentElement.dataset.readingMode !== 'research';
+  for (const panel of [get('history-panel'),get('candidate-panel')]) {
+    if (inReading) {const rect = get('conversation-picker').getBoundingClientRect(); panel.style.top = Math.max(16,Math.min(rect.bottom + 10,innerHeight - 360)) + 'px';}
+    else panel.style.removeProperty('top');
+  }
+  const overlay = candidatesOpen && (innerWidth <= 1250 || inReading) ? get('candidate-panel') : historyOpen && (innerWidth <= 760 || inReading) ? get('history-panel') : null;
   get('chat-panel').inert = !!overlay;
+  get('atlas-reader').inert = !!overlay;
   for (const panel of [get('history-panel'), get('candidate-panel')]) {if (panel === overlay) {panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true');} else {panel.removeAttribute('role'); panel.removeAttribute('aria-modal');}}
   if (overlay && drawer !== overlay) {drawerReturn = document.activeElement; overlay.querySelector('button').focus();}
   if (!overlay && drawer) drawerReturn?.focus(); drawer = overlay;
 }
 get('toggle-history').onclick = () => setPanel('history', get('app').classList.contains('history-closed'));
+get('conversation-picker').onclick = () => setPanel('history', get('app').classList.contains('history-closed'));
 get('toggle-candidates').onclick = () => setPanel('candidates', get('app').classList.contains('candidates-closed'));
 get('close-history').onclick = () => setPanel('history', false); get('close-candidates').onclick = () => setPanel('candidates', false);
 get('scrim').onclick = () => {setPanel('history', false); setPanel('candidates', false);};
@@ -363,10 +379,12 @@ document.addEventListener('keydown', event => {
 window.addEventListener('resize', updatePanels);
 if (innerWidth <= 760) get('app').classList.add('history-closed'); updatePanels();
 for (const button of document.querySelectorAll('[data-prompt]')) button.onclick = () => {get('question').value = button.dataset.prompt; autosize(); get('question').focus();};
-try {
-  const data = JSON.parse(decodeURIComponent(location.hash.slice(1)) || '{}');
-  for (const key of ['article_id', 'topic_id', 'anchor', 'view']) if (typeof data[key] === 'string' && data[key].length <= 300) context[key] = data[key];
-} catch {}
+const reading = createReadingView({get, onContext: value => {context = value;}, onLayout: updatePanels, getActive: () => active});
 get('private-context').textContent = context.article_id ? '阅读上下文 · ' + context.article_id : '';
 candidates([]); controls();
-(async () => {try {await status(); await list(); if (sessions.length) await load(sessions[0].id); ready = true; controls();} catch (error) {report(error);}})();
+(async () => {try {
+  await status(); await list();
+  if (reading.initialSession) {try {await load(reading.initialSession);} catch (error) {if (error.message !== 'session_not_found') throw error; if (sessions.length) await load(sessions[0].id);}}
+  else if (sessions.length) await load(sessions[0].id);
+  ready = true; controls();
+} catch (error) {report(error);}})();

@@ -3,7 +3,9 @@
     "name": "Embodied AI Atlas",
     "subtitle": "System-centric · Knowledge-driven · Context-aware",
     "version": "0.3.0",
-    "asOf": "2026-11-20"
+    "asOf": "2026-11-20",
+    "agent_name": "Orbit",
+    "private_agent_origin": "https://atlas-agent-private.leo-hou.workers.dev"
   },
   "sections": [
     {

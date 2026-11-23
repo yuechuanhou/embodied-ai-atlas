@@ -140,8 +140,16 @@ knowledge source; private conversations, candidates and approvals live separatel
 Models propose changes; trusted services validate them and execute only an Owner's
 exact approved version. Public PRs require confirmation before creation.
 
-The extension supplies proposal contracts, a locally tested private Worker/D1 runtime,
-and versioned migrations. It is not deployed. Normal builds emit a content-addressed
+The extension supplies proposal contracts, an Owner-only deployed Worker/D1 runtime,
+and versioned migrations. The GitHub publication pipeline remains unimplemented. Normal builds emit a content-addressed
 knowledge snapshot for trusted synchronization; this is derived data, not another
-editable knowledge source. An optional private-workbench link is enabled only through
-`ATLAS_AGENT_ORIGIN` after the destination is verified. The static site remains independent.
+editable knowledge source. The verified private entry is public URL metadata in
+`manifest.site.private_agent_origin`, overridable with `ATLAS_AGENT_ORIGIN`.
+The static site remains independently readable without authentication.
+
+Orbit uses one conversation across companion, reading-sidebar and research layouts.
+Layout and article navigation never implicitly select a different conversation. A
+private top-level shell embeds the canonical public reader; authenticated APIs and
+all private content remain at the private origin. Only bounded public reading IDs,
+canonical navigation and theme changes cross the explicitly allowlisted frame bridge.
+See [the reading contract](agent/runtime/READING.md) for state, access and rollout rules.
