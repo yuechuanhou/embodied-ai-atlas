@@ -336,3 +336,12 @@ test('refresh restores the selected conversation and layout using private IDs wi
   restored.d.getElementById('return-reading').click();assert.equal(restored.dom.window.document.documentElement.dataset.readingMode,'sidebar');
   assert.deepEqual(ui.errors,[]);assert.deepEqual(restored.errors,[]);
 });
+
+test('malformed entry fragments fall back to the research workspace without breaking session access', async t => {
+  const h=await harness();t.after(h.dispose);await h.sync();
+  for(const value of [null,[],true,'unexpected']) {
+    const ui=await open(t,h,null,ORIGIN+'/#'+encodeURIComponent(JSON.stringify(value)));
+    assert.equal(ui.dom.window.document.documentElement.dataset.readingMode,'research');
+    assert.equal(ui.d.getElementById('send').disabled,false);assert.deepEqual(ui.errors,[]);
+  }
+});

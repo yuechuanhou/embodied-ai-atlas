@@ -21,6 +21,7 @@ export function createReadingView({get, onContext, onLayout, getActive}) {
   const frame = get('atlas-reader'), input = get('question'), app = get('app');
   let initial = {};
   try {initial = JSON.parse(decodeURIComponent(location.hash.slice(1)) || '{}');} catch {}
+  if (!initial || typeof initial !== 'object' || Array.isArray(initial)) initial = {};
   let reading = readingContext(initial), draftScope = null, pinned = false, connected = false;
   let lastMode = 'companion', lastReadingMode = ['companion','sidebar'].includes(initial.return_mode) ? initial.return_mode : 'companion', loaded = false, timer;
   const drafts = new Map();
