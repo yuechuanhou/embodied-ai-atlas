@@ -67,7 +67,8 @@ class ProposalContracts(unittest.TestCase):
         self.check()
 
     def test_unknown_commands_and_non_content_paths_fail(self):
-        for path in ("assets/site.js", ".github/workflows/check.yml", "content/../secret.md",
+        for path in ("assets/site.js", ".github/workflows/check.yml", "CONTENT_STYLE_GUIDE.md",
+                     "CONTENT_CHANGE_POLICY.md", "content/../secret.md",
                      "content/nested/secret.md", "/content/example.md", "content/example.md\n"):
             with self.subTest(path=path), self.assertRaises(ValidationError):
                 proposal = copy.deepcopy(self.proposal)
@@ -156,6 +157,40 @@ class ProposalContracts(unittest.TestCase):
             path = root / "ARCHITECTURE.md"
             path.write_bytes(path.read_bytes() + b"\nChanged contract\n")
             self.assertNotEqual(before, contract_digest(root))
+
+    def test_editorial_and_operation_rules_invalidate_old_approvals(self):
+        rules = ('CONTENT_STYLE_GUIDE.md', 'CONTENT_CHANGE_POLICY.md')
+        self.assertTrue(set(rules) <= set(CONTRACT_FILES))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in CONTRACT_FILES:
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((ROOT / name).read_bytes())
+            for name in rules:
+                with self.subTest(rule=name):
+                    path = root / name
+                    original = path.read_bytes()
+                    path.write_bytes(original + b'\nChanged normative rule\n')
+                    with self.assertRaisesRegex(ValueError, 'reconfirm'):
+                        self.check(current_contract=contract_digest(root))
+                    path.write_bytes(original)
+            self.assertEqual(contract_digest(root), self.proposal['contract_digest'])
+
+    def test_delete_or_migration_intent_cannot_expand_v1_permissions(self):
+        variants = []
+        for kind in ('delete_article', 'merge_topics', 'split_topic', 'retire_article'):
+            proposal = copy.deepcopy(self.proposal)
+            proposal['intents'][0]['kind'] = kind
+            variants.append(proposal)
+        for update in ({'after_utf8': None}, {'operation': 'delete'}, {'after_utf8': ''}):
+            proposal = copy.deepcopy(self.proposal)
+            proposal['file_changes'][0].update(update)
+            variants.append(proposal)
+        for proposal in variants:
+            proposal['patch_digest'] = proposal_digest(proposal)
+            with self.subTest(proposal=proposal), self.assertRaises(ValidationError):
+                validate_proposal(proposal)
 
 
 class DatabaseContracts(unittest.TestCase):

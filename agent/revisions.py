@@ -7,6 +7,7 @@ import shutil
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACT_FILES = (
     'ARCHITECTURE.md', 'AGENT_ARCHITECTURE.md', 'CONTENT_WORKFLOW.md',
+    'CONTENT_STYLE_GUIDE.md', 'CONTENT_CHANGE_POLICY.md',
     'agent/contracts/knowledge-change.schema.json', 'agent/proposals.py',
     'agent/revisions.py', 'agent/change_validation.py',
     'scripts/validate_content.py', 'scripts/legacy_articles.json',

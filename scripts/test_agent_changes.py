@@ -58,6 +58,19 @@ class ChangeContracts(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'ownership'):
             self.check()
 
+    def test_removal_of_historical_articles_relations_or_view_entries_is_blocked(self):
+        mutations = (
+            ('manifest', lambda value: value['pages'].pop(), 'Historical article removed'),
+            ('topics', lambda value: value['relations'].pop(), 'Existing relation removed'),
+            ('architecture', lambda value: value['contexts'][0]['articles'].pop(), 'Existing view reference removed'),
+        )
+        for name, mutate, message in mutations:
+            with self.subTest(kind=name):
+                self.proposal = proposal_fixture()
+                self.metadata(name, mutate)
+                with self.assertRaisesRegex(ValueError, message):
+                    self.check()
+
     def test_historical_topic_anchor_and_alias_cannot_be_removed(self):
         for name, mutate in (('topics', lambda value: value['topics'].pop()),
                              ('anchors', lambda value: value.pop())):
