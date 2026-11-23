@@ -39,7 +39,7 @@ export async function sendMessage({body, sessionId, ownerId, env, snapshot, fres
         .bind(requestId + ':user', sessionId, sequence, body.message, canonical({reading_context: context, selected_text: selected, revision: snapshot.revision}), now),
     ]);
     const sources = search(snapshot, body.message, 6, context), config = modelConfiguration(env);
-    const catalog = (await db.prepare('SELECT id,title,placement_json FROM knowledge_candidates WHERE session_id=? AND owner_id=? ORDER BY updated_at DESC LIMIT 12')
+    const catalog = (await db.prepare("SELECT id,title,placement_json FROM knowledge_candidates WHERE session_id=? AND owner_id=? AND status!='dismissed' ORDER BY updated_at DESC LIMIT 12")
       .bind(sessionId, ownerId).all()).results;
     let result, mode = 'retrieval';
     if (config.ready && fresh) {
@@ -77,6 +77,9 @@ export async function sendMessage({body, sessionId, ownerId, env, snapshot, fres
       const prior = candidate.candidate_id ? await db.prepare('SELECT * FROM knowledge_candidates WHERE id=? AND owner_id=? AND session_id=?').bind(candidate.candidate_id, ownerId, sessionId).first() :
         await db.prepare('SELECT * FROM knowledge_candidates WHERE session_id=? AND owner_id=? AND dedup_key=?').bind(sessionId, ownerId, dedup).first();
       candidateId = prior?.id || uid();
+      // Owner edits and reviews are never silently rewritten by later learning
+      // turns. The original draft remains available for explicit Owner review.
+      if (!prior || JSON.parse(prior.placement_json).owner_edited !== true && !['ready', 'dismissed'].includes(prior.status)) {
       statements.push(db.prepare("INSERT INTO knowledge_candidates(id,owner_id,session_id,title,dedup_key,status,evidence_status,draft_markdown,placement_json,source_revision,created_at,updated_at) VALUES(?,?,?,?,?,'researching','insufficient',?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,draft_markdown=excluded.draft_markdown,placement_json=excluded.placement_json,source_revision=excluded.source_revision,version=version+1,updated_at=excluded.updated_at")
         .bind(candidateId, ownerId, sessionId, candidate.title, prior?.dedup_key || dedup, candidate.markdown,
           canonical({article_id: candidate.article_id, primary_domain: candidate.primary_domain, unverified: true}), snapshot.revision, now, now));
@@ -85,6 +88,7 @@ export async function sendMessage({body, sessionId, ownerId, env, snapshot, fres
         .bind(sourceId, ownerId, 'session:' + sessionId + '/message:' + requestId, snapshot.revision, now, canonical({verification: 'unverified', mode})));
       statements.push(db.prepare('INSERT INTO candidate_sources(candidate_id,source_id,owner_id,supports) VALUES(?,?,?,?)')
         .bind(candidateId, sourceId, ownerId, 'Conversation provenance only; new technical claims require verification'));
+      }
     }
     const output = {request_id: requestId, answer: result.answer, citations, candidate_id: candidateId,
       mode, revision: snapshot.revision, freshness: fresh ? 'current' : 'stale'};

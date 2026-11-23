@@ -4,6 +4,7 @@ import {activeSnapshot, createKnowledgeSync, search} from './knowledge.js';
 import {modelConfiguration} from './model.js';
 import {sendMessage} from './chat.js';
 import {candidateView, sessionPinned, sessionTitle, validatedSessionPatch} from './session-view.js';
+import {candidateDetail, candidateFor, exportCandidate, saveCandidate} from './candidate-review.js';
 
 export function createApplication({fetchImpl = fetch, renderWorkbench = null} = {}) {
   const authenticate = createAuthenticator(fetchImpl), synchronize = createKnowledgeSync(fetchImpl);
@@ -40,6 +41,17 @@ export function createApplication({fetchImpl = fetch, renderWorkbench = null} = 
         await synchronize(env, true);
         const sync = await db.prepare('SELECT repo_head,published_revision,checked_at,error_code FROM runtime_sync WHERE id=1').first();
         return json(sync, sync.error_code ? 503 : 200);
+      }
+      const candidateRoute = pathname.match(/^\/api\/candidates\/([a-f0-9-]{36})(\/export)?$/);
+      if (candidateRoute) {
+        const candidate = await candidateFor(db, candidateRoute[1], owner);
+        if (method === 'GET' && candidateRoute[2]) return await exportCandidate(db, candidate, await activeSnapshot(db), Number(searchParams.get('version')));
+        if (method === 'GET' && !candidateRoute[2]) return json(await candidateDetail(db, candidate, await synchronize(env)));
+        if (method === 'PATCH' && !candidateRoute[2]) {
+          const body = await readJSONRequest(request, 80000), snapshot = await synchronize(env, body?.status === 'ready');
+          const sync = await db.prepare('SELECT * FROM runtime_sync WHERE id=1').first();
+          return json(await saveCandidate({db, owner, candidate, body, snapshot, sync}));
+        }
       }
       if (pathname === '/api/sessions' && method === 'GET') {
         const offset = Number(searchParams.get('offset') || 0);

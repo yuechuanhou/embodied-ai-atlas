@@ -1,5 +1,6 @@
 import {renderMarkdown} from './markdown.js';
 import {AGENT_NAME, createReadingView} from './reading-view.js';
+import {createCandidateEditor} from './candidate-editor.js';
 
 const get = id => document.getElementById(id);
 const node = (tag, text = '', cls = '') => {const el = document.createElement(tag); el.textContent = text; if (cls) el.className = cls; return el;};
@@ -8,6 +9,7 @@ let drawer = null, drawerReturn = null;
 let deleting = false, deleteTarget = null, deleteReturn = null;
 let savingSession = false, renameTarget = null, renameReturn = null, menuTarget = null, menuTrigger = null;
 let listToken = 0;
+let currentCandidates = [];
 const hints = {authentication_required: '请重新登录私人工作台。', invalid_identity: '登录已失效，请刷新并重新登录。', owner_required: '此工作台仅允许 Owner 使用。',
   knowledge_not_ready: '知识快照尚未就绪，请同步内容后再试。', daily_model_budget_exceeded: '已达到今天配置的模型调用上限。', model_request_incomplete: '模型请求未完成；请先核对结果，避免重复提交。',
   model_output_truncated: '模型输出达到上限，本次回答和草稿未保存。请核对结果；重新发起会再次调用模型。',
@@ -32,6 +34,7 @@ function controls() {
   for (const id of ['new-session', 'rename', 'delete-session']) get(id).disabled = !ready || locked || (id !== 'new-session' && !active);
   get('export').disabled = !active || deleting;
   for (const item of get('sessions').querySelectorAll('button')) item.disabled = locked;
+  for (const item of get('candidates').querySelectorAll('button')) item.disabled = locked;
   get('composer-hint').textContent = deleting ? '正在删除对话…' : savingSession ? '正在保存对话设置…' : busy ? '回答生成中，可以先写下一条问题' : 'Enter 发送 · Shift + Enter 换行';
 }
 function title(text) {activeTitle = text; get('conversation-title').textContent = text; document.title = text + ' · ' + AGENT_NAME;}
@@ -62,6 +65,7 @@ function safeLink(text, href, cls = '') {
   } catch {return node('span', text, cls);}
 }
 function candidates(items) {
+  currentCandidates = items;
   const target = get('candidates'); target.replaceChildren();
   get('candidate-count').textContent = String(items.length); get('panel-count').textContent = String(items.length);
   if (!items.length) {
@@ -70,7 +74,8 @@ function candidates(items) {
   for (const candidate of items) {
     const view = candidate.placement_view || {}, card = node('section', '', 'candidate');
     const evidence = {insufficient: '待查证', checked: '已核验来源', owner_experience: '个人经验'}[candidate.evidence_status] || '待查证';
-    card.append(node('h3', candidate.title), node('p', '私人候选 · ' + evidence + ' · v' + candidate.version, 'candidate-state'));
+    const state = {captured: '已记录', researching: '待查证', drafting: '整理中', ready: '已整理 · 待正式提案', dismissed: '暂不采用'}[candidate.status] || '待查证';
+    card.append(node('h3', candidate.title), node('p', state + ' · ' + (view.review_is_current ? '本人已核对本版' : view.owner_edited && candidate.evidence_status !== 'insufficient' ? '需重新核对' : evidence) + ' · v' + candidate.version, 'candidate-state'));
     const metadata = node('dl', '', 'metadata');
     function row(label, value) {metadata.append(node('dt', label)); const dd = node('dd'); dd.append(typeof value === 'string' ? document.createTextNode(value) : value); metadata.append(dd); return dd;}
     const domain = row('Primary Domain', view.domain?.title || '尚未归类'); if (view.domain) domain.append(node('code', view.domain.id));
@@ -85,6 +90,11 @@ function candidates(items) {
     const details = node('details'); details.open = items.length === 1; details.append(node('summary', '查看候选正文'));
     const body = node('div', '', 'message-content'); body.append(renderMarkdown(candidate.draft_markdown, document)); details.append(body); card.append(details);
     card.append(node('p', '来源版本 ' + candidate.source_revision.slice(0, 8) + (view.source_is_current ? ' · 当前快照' : ' · 与当前快照不同，入库前需核对'), 'candidate-warning'));
+    if (view.owner_edited) card.append(node('p', '已保留你的整理；后续模型草稿不会自动覆盖。', 'candidate-warning'));
+    const actions = node('div', '', 'candidate-actions'), review = node('button', '审阅整理'); review.type = 'button'; review.dataset.candidateId = candidate.id;
+    review.onclick = () => candidateEditor.open(candidate.id, review);
+    const download = node('a', '导出 Markdown'); download.href = '/api/candidates/' + candidate.id + '/export?version=' + candidate.version; download.download = '';
+    actions.append(review, download); card.append(actions);
     target.append(card);
   }
 }
@@ -356,7 +366,7 @@ get('toggle-candidates').onclick = () => setPanel('candidates', get('app').class
 get('close-history').onclick = () => setPanel('history', false); get('close-candidates').onclick = () => setPanel('candidates', false);
 get('scrim').onclick = () => {setPanel('history', false); setPanel('candidates', false);};
 document.addEventListener('keydown', event => {
-  if (get('delete-dialog').open || get('rename-dialog').open) return;
+  if (get('delete-dialog').open || get('rename-dialog').open || get('candidate-dialog').open) return;
   if (menuTarget) {
     const items = [...get('session-menu').querySelectorAll('[role=menuitem]')], index = items.indexOf(document.activeElement);
     if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
@@ -380,6 +390,8 @@ window.addEventListener('resize', updatePanels);
 if (innerWidth <= 760) get('app').classList.add('history-closed'); updatePanels();
 for (const button of document.querySelectorAll('[data-prompt]')) button.onclick = () => {get('question').value = button.dataset.prompt; autosize(); get('question').focus();};
 const reading = createReadingView({get, onContext: value => {context = value;}, onLayout: updatePanels, getActive: () => active});
+const candidateEditor = createCandidateEditor({get, api, announce, isBusy: () => busy || deleting || savingSession,
+  onSaved: saved => {if (saved.session_id === active) {candidates(currentCandidates.map(c => c.id === saved.id ? saved : c)); controls();}}});
 get('private-context').textContent = context.article_id ? '阅读上下文 · ' + context.article_id : '';
 candidates([]); controls();
 (async () => {try {

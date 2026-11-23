@@ -1,6 +1,6 @@
 # Atlas Personal Agent — Architecture v0.1
 
-状态：架构基线、隔离交互预览和可部署的私人 Worker/D1 代码已实现；Owner JWT、私有保存、快照同步及模型协议已通过本地集成验证。真实 Cloudflare、Access 登录、模型账号和云端数据库尚未接入或部署。本文不授权自动合并或部署当前开发分支。
+状态：私人 Worker/D1、Owner Access、Claude 问答、私人候选和 Orbit 三种阅读模式已部署；Owner 已确认问答、候选及刷新恢复。GitHub 写入与正式发布链路尚未实现。最新功能边界和上线证据见 [AGENT_ROADMAP.md](AGENT_ROADMAP.md)。本文是架构基线，不是某次开发分支的部署记录。
 
 ## 1. 目标与边界
 
@@ -30,7 +30,7 @@
 
 ## 3. 部署与模块边界
 
-目标部署：现有 GitHub Pages 保持公开阅读；独立 Cloudflare Worker 提供私有 API/工作台；Access 限制 Owner；D1 保存私人过程；持久任务负责发布。`agent/runtime/` 已提供代码和迁移，本轮未创建云端资源。首期私人工作台同源，公开站只在配置真实 origin 后显示入口并传递公开阅读 ID；不传聊天或密钥。可先用受 Access 保护的 workers.dev，避免迁移主站 DNS。
+现有部署：GitHub Pages 保持公开阅读；独立 Cloudflare Worker 提供私有 API/工作台；Access 限制 Owner；D1 保存私人过程。持久发布任务仍待实现。私人工作台同源，公开站显示已核验的入口并传递公开阅读 ID；不传聊天或密钥。当前使用受 Access 保护的 workers.dev，不迁移主站 DNS。
 
 ```mermaid
 flowchart TD
@@ -108,7 +108,7 @@ Owner 邮箱/subject、Access audience、GitHub App 密钥和模型密钥全部�
 | --- | --- | --- |
 | A 架构与数据基础 | 本文、入库规范、提案 schema、审批摘要检查、SQL migration、回归检查 | 已完成本地验证；不等同于在线服务 |
 | B 流程与交互验证 | 面板/工作台样稿；模拟适配器驱动检索→候选→差异→确认；语义变更校验器 | 已完成本地演示；真实内容检索、模拟新增资料，覆盖失败/版本变化/导航恢复。语言模型讲解尚待 C |
-| C 私有运行环境 | Owner 认证、D1、可信快照同步、模型适配器与私人工作台 | 本地 workerd/D1/JWT 集成与打包已验证；真实账号、API/预算、登录、域名、同步和云端恢复仍待接入；发布持久任务归 D |
+| C 私有运行环境 | Owner 认证、D1、可信快照同步、模型适配器与私人工作台 | 已部署；Owner 确认问答、候选与恢复。真实设备三模式、完整身份拒绝和云端隔离恢复仍需验收；发布持久任务归 D |
 | D 发布集成 | 单仓库 GitHub App、获批 PR、CI/部署/同步跟踪 | 验证分支保护与幂等性；用户批准具体部署后上线 |
 
 这是开发验证顺序，不把三项产品能力拆成只读版本长期交付。B 阶段即用模拟适配器验证全部学习与入库流程。
@@ -125,4 +125,4 @@ Owner 邮箱/subject、Access audience、GitHub App 密钥和模型密钥全部�
 8. 数据可导出/删除；迁移、外键、备份恢复经过真实环境演练。
 9. 原有阅读、搜索、知识图谱、历史链接和离线文件在 Agent 故障时正常。
 
-当前验证结构、摘要/批准匹配、SQLite 与本地 D1 数据约束、语义检查、模拟交互以及真实 Worker 代码的签名验证/权限边界。模型、Access 和 GitHub HTTP 在集成测试中模拟，不代表线上登录或真实模型已验收。预览使用 `build.py --agent-demo` 单独生成；私有 Worker 只 dry-run 构建，不进入 Pages 上传目录。详见 `agent/PREVIEW.md`、`agent/runtime/README.md` 和接入方案。
+自动测试验证结构、摘要/批准匹配、SQLite 与本地 D1 数据约束、语义检查、模拟交互以及 Worker 代码的签名验证/权限边界。测试中的模型、Access 和 GitHub HTTP 均模拟；实际部署证据和 Owner 验收另见功能清单。演示使用 `build.py --agent-demo` 单独生成；本地 Worker 构建是 dry-run，不进入 Pages 上传目录，生产代码更新使用独立受保护工作流。详见 `agent/PREVIEW.md`、`agent/runtime/README.md` 和 `agent/runtime/UPDATE.md`。
