@@ -81,6 +81,7 @@ export async function prepareProposal({body, candidate, owner, env, snapshot, sy
   requireValue(snapshot?.revision === body.snapshot_revision && current(snapshot, await syncRow(db)), 409, 'proposal_sync_required');
   const files = await verifiedContext(snapshot);
   const detail = await candidateDetail(db, candidate, snapshot), placement = detail.candidate.placement_view, evidence = detail.evidence;
+  requireValue(!placement.organization.blocks_proposal, 409, 'proposal_placement_review_required');
   requireValue(candidate.status === 'ready' && placement.review_is_current && evidence && ['official', 'paper', 'experience'].includes(evidence.kind), 409, 'proposal_evidence_required');
   const article = snapshot.articles.find(a => a.id === placement.article?.id && a.primary_domain === placement.domain?.id);
   requireValue(article && /^[a-z0-9][a-z0-9_-]*\.md$/.test(article.file), 409, 'proposal_existing_article_required');
@@ -95,6 +96,7 @@ export async function prepareProposal({body, candidate, owner, env, snapshot, sy
       'Prefer the existing canonical article, check duplication against its FULL text and related entries, and choose one supplied narrative purpose. ' +
       'Return decision=duplicate if already covered, or needs_review if evidence does not support the addition or a new article/topic/metadata change is required. ' +
       'Only decision=extend may supply a concise addition_markdown. Do not rewrite the existing article, invent facts/sources, assign IDs, change metadata, or claim publication/build/fact verification. ' +
+      'Website architecture suggestions belong only to the separate Owner architecture-design conversation, never in the article addition or an executable change. ' +
       'Do not copy private evidence identifiers, session IDs or conversation transcripts into the addition. Public citations must be safe, relevant URLs explicitly supplied. ' +
       'No H1 or raw HTML. Editorial notes must identify technical, style and public-disclosure questions for Owner review. Return exactly the supplied JSON shape.\n\n' +
       rules.map(name => '## ' + name + '\n' + files[name]).join('\n\n'),

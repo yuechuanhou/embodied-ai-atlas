@@ -1,5 +1,6 @@
 import {record, requireValue} from './common.js';
 import {SITE} from './knowledge.js';
+import {organizationView} from './candidate-organization.js';
 
 // Presentation metadata belongs to the session, never to the model's context.
 export function sessionTitle(session, firstQuestion = '') {
@@ -47,6 +48,7 @@ export function candidateView(candidate, snapshot) {
       id: t.id, title: t.title, url: articleLink(article, t.anchor),
     })) : [],
     topics_assigned: false,
+    organization: organizationView(placement, snapshot, candidate.version),
     unresolved: !!((placement.article_id && !article) || (placement.primary_domain && !domain)),
     domain_mismatch: !!(article && domain && article.primary_domain !== domain.id),
     snapshot_revision: snapshot?.revision || null,

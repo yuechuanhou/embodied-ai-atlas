@@ -9,6 +9,51 @@ import {readerURL, readingContext} from '../src/reading-view.js';
 
 const enabled = {MODEL_PROVIDER: 'anthropic', MODEL_NAME: 'synthetic-test-model', MODEL_API_KEY: 'synthetic-secret', DAILY_CALL_LIMIT: '10', DAILY_TOKEN_LIMIT: '200000'};
 
+test('automatic private architecture advice restores after refresh, stays safe text and can be copied without another model call', async t => {
+  const h = await harness(enabled); t.after(h.dispose); await h.sync(); const id = await h.session();
+  h.world.modelResponse = {answer: 'Continue learning while the placement remains private.', cited_source_ids: [], candidate: {
+    candidate_id: null, title: 'Synthetic unclassified knowledge', markdown: 'A synthetic private observation.', primary_domain: null, article_id: null,
+    organization: {status: 'architecture_review', reason: 'Synthetic placement needs discussion.', advice: {
+      problem: 'Synthetic gap <img src=x onerror=bad()>', suggestion: 'Evaluate the existing views in the architecture conversation.', impact: 'Inspect Topic identities and links.'}}}};
+  assert.equal((await h.request('/api/sessions/' + id + '/messages', {method: 'POST', body: {request_id: randomUUID(), message: 'Learn this synthetic concept', reading_context: {}}})).status, 200);
+  const ui = await open(t, h), d = ui.d;
+  assert(d.querySelector('.candidate-organization').textContent.includes('需先讨论架构'));
+  assert.equal(d.querySelector('.candidate-organization img'), null);
+  assert.equal(d.querySelector('[data-proposal-candidate]').hidden, true);
+  d.querySelector('.copy-architecture-advice').click();
+  await until(() => !d.querySelector('.candidate-organization textarea').hidden);
+  const copied = d.querySelector('.candidate-organization textarea').value;
+  assert(copied.includes('# Atlas 架构讨论建议')); assert(copied.includes('不作为修改指令'));
+  assert(!copied.includes(id)); assert(!copied.includes('synthetic-secret'));
+  const restored = await open(t, h); assert(restored.d.querySelector('.candidate-organization').textContent.includes('Evaluate the existing views'));
+  assert.equal(h.world.modelCalls.length, 1); assert.deepEqual(ui.errors, []); assert.deepEqual(restored.errors, []);
+});
+
+test('one explicit review-and-prepare action saves the candidate then prepares a proposal without losing the learning draft or bypassing evidence', async t => {
+  const h = await harness(enabled); t.after(h.dispose); await h.sync(); const id = await h.session();
+  const article = h.world.snapshot.articles.find(a => a.id === 'sensors-and-estimation');
+  h.world.modelResponse = {answer: 'Synthetic learning answer.', cited_source_ids: [], candidate: {candidate_id: null, title: 'Synthetic combined flow',
+    markdown: 'A limited synthetic observation.', article_id: article.id, primary_domain: article.primary_domain,
+    organization: {status: 'fits', reason: 'The existing article is suitable.', advice: null}}};
+  await h.request('/api/sessions/' + id + '/messages', {method: 'POST', body: {request_id: randomUUID(), message: 'Learn the synthetic observation', reading_context: {}}});
+  const ui = await open(t, h), d = ui.d; d.getElementById('question').value = 'Keep this next learning question';
+  d.querySelector('[data-proposal-candidate]').click(); await until(() => !d.getElementById('candidate-prepare').disabled);
+  d.getElementById('candidate-prepare').click(); await until(() => d.getElementById('candidate-error').textContent.length > 0);
+  assert.equal(h.world.modelCalls.length, 1); assert.equal(d.getElementById('candidate-dialog').open, true);
+  d.getElementById('candidate-evidence-kind').value = 'experience'; d.getElementById('candidate-evidence-kind').dispatchEvent(new ui.dom.window.Event('change'));
+  d.getElementById('candidate-reference').value = 'Synthetic limited lab observation'; d.getElementById('candidate-supports').value = 'Supports this synthetic observation only.';
+  d.getElementById('candidate-confirm').checked = true;
+  h.world.modelResponse = {decision: 'extend', narrative: 'concept', addition_markdown: '## Synthetic combined addition\n\nA limited observation.',
+    reason: 'Adds a bounded synthetic case.', editorial_notes: 'Review wording and public scope.'};
+  d.getElementById('candidate-prepare').click(); d.getElementById('candidate-prepare').click();
+  await until(() => d.getElementById('proposal-content').querySelector('.proposal-diff'));
+  assert.equal(h.world.modelCalls.length, 2); assert.equal(d.getElementById('candidate-dialog').open, false);
+  assert.equal(d.getElementById('question').value, 'Keep this next learning question');
+  assert.equal((await h.db.prepare('SELECT COUNT(*) n FROM proposal_versions').first()).n, 1);
+  assert.equal((await h.db.prepare('SELECT COUNT(*) n FROM approvals').first()).n, 0);
+  assert.deepEqual(ui.errors, []);
+});
+
 async function proposalFixture(t) {
   const h = await harness(enabled); t.after(h.dispose); await h.sync(); const id = await h.session();
   const article = h.world.snapshot.articles.find(a => a.id === 'sensors-and-estimation');

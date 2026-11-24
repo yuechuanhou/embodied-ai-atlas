@@ -1184,6 +1184,9 @@ html:not([data-reading-mode=research]) .message.assistant>.message-avatar {posit
 .candidate-dialog .dialog-actions {display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 .candidate-dialog .dialog-actions a {margin-right:auto}
 .proposal-dialog {width:min(1040px,calc(100vw - 32px));max-width:1040px;max-height:calc(100dvh - 32px);overflow:auto;padding:28px}
+.candidate-organization {padding:12px 14px;background:var(--paper-2);border-radius:9px;margin:14px 0;overflow-wrap:anywhere}
+.candidate-organization>p {margin:0;font-weight:600}.candidate-organization details {margin-top:8px}
+.candidate-organization summary {cursor:pointer;color:var(--accent)}.candidate-organization textarea {width:100%;min-height:160px;font:inherit}
 .proposal-dialog header h2 {margin:0}.proposal-dialog p {overflow-wrap:anywhere;line-height:1.7}
 .proposal-tools {display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:18px 0}
 .proposal-tools select {font:inherit;background:var(--paper);color:var(--ink);border:1px solid var(--line);padding:8px;border-radius:8px}

@@ -5,6 +5,7 @@ export function createProposalEditor({get, api, isBusy, onBusy, announce}) {
   let candidate = null, metadata = null, trigger = null, pending = null, working = false;
   const node = (tag, text = '', cls = '') => {const el = document.createElement(tag); el.textContent = text; if (cls) el.className = cls; return el;};
   const errors = {proposal_evidence_required: '请先审阅候选、核对来源，并保存为「已整理」。',
+    proposal_placement_review_required: '归属尚未明确或需要架构讨论；候选已私有保存，不会强行入库。',
     proposal_existing_article_required: '本轮先支持已有文章的增补。请在候选审阅中选择目标文章；新文章与 Topic 注册后续接入。',
     proposal_rules_unavailable: '当前快照尚未包含完整入库规范，请同步最新网站内容。',
     proposal_contract_changed: '规范摘要不一致，请同步后重新核对。', proposal_sync_required: '暂时无法确认最新网站版本，请同步后重新打开。',
@@ -55,7 +56,7 @@ export function createProposalEditor({get, api, isBusy, onBusy, announce}) {
     content.append(node('p', '已核对精确增补与版本摘要。整仓语义校验、构建、技术/行文审阅及公开范围确认尚未完成；没有分配新 Topic 或修改关系。', 'proposal-limits'));
     get('proposal-generate').textContent = '按当前候选生成新版本';
   }
-  async function open(item, source) {
+  async function open(item, source, {prepare = false} = {}) {
     if (isBusy() || working) return;
     candidate = item; trigger = source; metadata = null; pending = null; clear(); get('proposal-error').textContent = '';
     get('proposal-status').textContent = '正在读取已保存的提案…'; get('proposal-generate').textContent = '准备私人提案';
@@ -66,22 +67,24 @@ export function createProposalEditor({get, api, isBusy, onBusy, announce}) {
       else get('proposal-status').textContent = '尚无提案 · 先选择已核对的候选和已有目标文章';
     } catch (e) {error(e);}
     finally {working = false; controls(); get('proposal-close').focus();}
+    if (prepare && metadata) await generate();
   }
   async function handleResult(result) {
     if (result.proposal_version) {await show(result.proposal_version); pending = null; announce('私人提案已准备，尚未批准或发布。');}
     else {pending = null; get('proposal-error').textContent = (result.decision === 'duplicate' ? '已有内容覆盖该知识，未创建重复提案。' : '仍需补充材料，未创建提案。') + ' ' + result.reason + '\n' + result.editorial_notes;}
   }
-  get('proposal-generate').onclick = async () => {
+  async function generate() {
     if (working || pending || !metadata) return;
     pending = {request_id: crypto.randomUUID(), candidate_version: metadata.candidate_version, snapshot_revision: metadata.snapshot_revision};
     working = true; controls(); get('proposal-error').textContent = '';
     try {await handleResult(await api('/api/candidates/' + candidate.id + '/proposals', 'POST', pending));}
     catch (e) {
-      if (['proposal_evidence_required', 'proposal_existing_article_required', 'proposal_rules_unavailable', 'proposal_contract_changed',
+      if (['proposal_evidence_required', 'proposal_placement_review_required', 'proposal_existing_article_required', 'proposal_rules_unavailable', 'proposal_contract_changed',
         'proposal_sync_required', 'candidate_version_changed', 'proposal_model_required', 'proposal_context_too_large'].includes(e.message)) pending = null;
       error(e);
     } finally {working = false; controls();}
-  };
+  }
+  get('proposal-generate').onclick = generate;
   get('proposal-check').onclick = async () => {
     if (working || !pending) return; working = true; controls();
     try {

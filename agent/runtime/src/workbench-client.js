@@ -2,6 +2,7 @@ import {renderMarkdown} from './markdown.js';
 import {AGENT_NAME, createReadingView} from './reading-view.js';
 import {createCandidateEditor} from './candidate-editor.js';
 import {createProposalEditor} from './proposal-editor.js';
+import {candidateAdvice} from './candidate-advice.js';
 
 const get = id => document.getElementById(id);
 const node = (tag, text = '', cls = '') => {const el = document.createElement(tag); el.textContent = text; if (cls) el.className = cls; return el;};
@@ -84,6 +85,7 @@ function candidates(items) {
     const article = row('目标文章', view.article ? safeLink(view.article.title, view.article.url) : '尚未指定'); if (view.article) article.append(node('code', view.article.id));
     row('Topic 归属', '尚未指定');
     card.append(metadata);
+    if (view.organization) card.append(candidateAdvice(document, candidate));
     if (view.unresolved || view.domain_mismatch) card.append(node('p', '归属信息与当前知识快照不一致，需要重新核对。', 'candidate-warning'));
     if (view.article_topics?.length) {
       const refs = node('details'); refs.append(node('summary', '文章已有 Topic · 归类参考'));
@@ -96,8 +98,10 @@ function candidates(items) {
     const actions = node('div', '', 'candidate-actions'), review = node('button', '审阅整理'); review.type = 'button'; review.dataset.candidateId = candidate.id;
     review.onclick = () => candidateEditor.open(candidate.id, review);
     const download = node('a', '导出 Markdown'); download.href = '/api/candidates/' + candidate.id + '/export?version=' + candidate.version; download.download = '';
-    const proposal = node('button', '入库提案'); proposal.type = 'button'; proposal.dataset.proposalCandidate = candidate.id;
-    proposal.onclick = () => proposalEditor.open(candidate, proposal);
+    const canPrepare = !view.organization?.blocks_proposal && !!view.article;
+    const proposal = node('button', candidate.status === 'ready' && view.review_is_current ? '入库提案' : '准备入库提案'); proposal.type = 'button'; proposal.dataset.proposalCandidate = candidate.id;
+    proposal.hidden = !canPrepare;
+    proposal.onclick = () => candidate.status === 'ready' && view.review_is_current ? proposalEditor.open(candidate, proposal) : candidateEditor.open(candidate.id, proposal);
     actions.append(review, download, proposal); card.append(actions);
     target.append(card);
   }
@@ -397,7 +401,8 @@ const reading = createReadingView({get, onContext: value => {context = value;}, 
 const proposalEditor = createProposalEditor({get, api, announce, isBusy: () => busy || deleting || savingSession,
   onBusy: value => {proposalBusy = value; controls();}});
 const candidateEditor = createCandidateEditor({get, api, announce, isBusy: () => busy || deleting || savingSession || proposalBusy,
-  onSaved: saved => {if (saved.session_id === active) {candidates(currentCandidates.map(c => c.id === saved.id ? saved : c)); controls();}}});
+  onSaved: saved => {if (saved.session_id === active) {candidates(currentCandidates.map(c => c.id === saved.id ? saved : c)); controls();}},
+  onPrepare: saved => proposalEditor.open(saved, [...get('candidates').querySelectorAll('[data-proposal-candidate]')].find(b => b.dataset.proposalCandidate === saved.id), {prepare: true})});
 get('private-context').textContent = context.article_id ? '阅读上下文 · ' + context.article_id : '';
 candidates([]); controls();
 (async () => {try {

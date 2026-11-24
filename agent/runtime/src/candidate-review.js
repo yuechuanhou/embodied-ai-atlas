@@ -1,5 +1,6 @@
 import {canonical, epoch, exactKeys, hex40, requireValue, sha256, text, uid} from './common.js';
 import {candidateView} from './session-view.js';
+import {architectureDiscussion, organizationView} from './candidate-organization.js';
 
 export const candidateStatuses = {captured: '已记录', researching: '待查证', drafting: '整理中', ready: '已整理 · 待正式提案', dismissed: '暂不采用'};
 const fields = ['version', 'snapshot_revision', 'title', 'draft_markdown', 'primary_domain', 'article_id', 'status', 'evidence'];
@@ -18,12 +19,14 @@ export async function candidateDetail(db, candidate, snapshot) {
     articles: (snapshot?.articles || []).map(a => ({id: a.id, title: a.title, primary_domain: a.primary_domain}))};
 }
 function validate(body, snapshot) {
-  requireValue(exactKeys(body, fields) && fields.every(f => Object.hasOwn(body, f)) && Number.isSafeInteger(body.version) && body.version > 0 &&
+  requireValue(exactKeys(body, [...fields, 'architecture_reviewed']) && fields.every(f => Object.hasOwn(body, f)) &&
+    (body.architecture_reviewed === undefined || typeof body.architecture_reviewed === 'boolean') && Number.isSafeInteger(body.version) && body.version > 0 &&
     hex40(body.snapshot_revision) && text(body.title, 160) && !/[\u0000-\u001f\u007f]/u.test(body.title) && text(body.draft_markdown, 12000) &&
     Object.hasOwn(candidateStatuses, body.status), 400, 'invalid_candidate_review');
   requireValue(snapshot && body.snapshot_revision === snapshot.revision, 409, 'candidate_snapshot_changed');
   requireValue(body.primary_domain === null || snapshot.domains.some(d => !d.auxiliary && d.id === body.primary_domain), 400, 'invalid_candidate_placement');
   requireValue(body.article_id === null || snapshot.articles.some(a => a.id === body.article_id && a.primary_domain === body.primary_domain), 400, 'invalid_candidate_placement');
+  if (body.architecture_reviewed) requireValue(body.primary_domain, 400, 'invalid_candidate_placement');
   if (body.evidence !== null) {
     const e = body.evidence;
     requireValue(exactKeys(e, ['kind', 'reference', 'supports', 'owner_confirmed']) && ['official', 'paper', 'experience'].includes(e.kind) &&
@@ -44,6 +47,10 @@ export async function saveCandidate({db, owner, candidate, body, snapshot, sync}
   const now = epoch(), placement = {...JSON.parse(candidate.placement_json), article_id: body.article_id,
     primary_domain: body.primary_domain, owner_edited: true, unverified: !body.evidence};
   delete placement.review;
+  delete placement.organization_resolution;
+  if (body.architecture_reviewed) placement.organization_resolution = {snapshot_revision: snapshot.revision, candidate_version: body.version + 1,
+    primary_domain: body.primary_domain, article_id: body.article_id};
+  if (body.status === 'ready') requireValue(!organizationView(placement, snapshot, body.version + 1).blocks_proposal, 409, 'candidate_architecture_review_required');
   const statements = [], evidence = body.evidence, sourceId = evidence ? uid() : null;
   if (evidence) {
     const digest = await sha256(canonical({title: body.title.trim(), markdown: body.draft_markdown,
@@ -75,6 +82,7 @@ export async function exportCandidate(db, candidate, snapshot, version) {
     '- 本人核对：' + (checked ? '已对照 ' + placement.snapshot_revision + ' 核对本版草稿；不代表 Agent 已检索外部来源' : '尚未核对或依据版本已变化'), '',
     '## 整理正文', '', candidate.draft_markdown, '', '## 私人核对记录', '',
     ...(evidence ? ['- 类型：' + evidence.kind, '- 参考：' + evidence.reference, '- 支持结论与适用条件：' + evidence.metadata.supports] : ['尚无本人确认的来源或工程经验。']), '',
+    ...(placement.organization.advice || placement.organization.status !== 'fits' ? [architectureDiscussion(candidate, placement.organization), ''] : []),
     '正式提案仍需检查 Topic、关系、完整文件差异及公开范围。此导出不会修改 GitHub。', ''];
   return new Response(lines.join('\n'), {headers: {'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'private, no-store',
     'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',

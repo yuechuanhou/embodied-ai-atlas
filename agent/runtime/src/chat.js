@@ -1,6 +1,7 @@
 import {ApiError, canonical, epoch, exactKeys, requireValue, sha256, text, uid} from './common.js';
 import {modelConfiguration, modelInput, callModel, validateModelResult} from './model.js';
 import {readingContext, search} from './knowledge.js';
+import {defaultOrganization} from './candidate-organization.js';
 
 export async function sendMessage({body, sessionId, ownerId, env, snapshot, fresh, fetchImpl}) {
   requireValue(exactKeys(body, ['request_id', 'message', 'reading_context', 'selected_text']) &&
@@ -82,7 +83,8 @@ export async function sendMessage({body, sessionId, ownerId, env, snapshot, fres
       if (!prior || JSON.parse(prior.placement_json).owner_edited !== true && !['ready', 'dismissed'].includes(prior.status)) {
       statements.push(db.prepare("INSERT INTO knowledge_candidates(id,owner_id,session_id,title,dedup_key,status,evidence_status,draft_markdown,placement_json,source_revision,created_at,updated_at) VALUES(?,?,?,?,?,'researching','insufficient',?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,draft_markdown=excluded.draft_markdown,placement_json=excluded.placement_json,source_revision=excluded.source_revision,version=version+1,updated_at=excluded.updated_at")
         .bind(candidateId, ownerId, sessionId, candidate.title, prior?.dedup_key || dedup, candidate.markdown,
-          canonical({article_id: candidate.article_id, primary_domain: candidate.primary_domain, unverified: true}), snapshot.revision, now, now));
+          canonical({article_id: candidate.article_id, primary_domain: candidate.primary_domain, unverified: true,
+            organization: candidate.organization || defaultOrganization(candidate.primary_domain)}), snapshot.revision, now, now));
       const sourceId = await sha256(ownerId + ':' + requestId + ':inference');
       statements.push(db.prepare("INSERT INTO source_records(id,owner_id,kind,reference,revision,visibility,checked_at,metadata_json) VALUES(?,?,'inference',?,?,'private',?,?)")
         .bind(sourceId, ownerId, 'session:' + sessionId + '/message:' + requestId, snapshot.revision, now, canonical({verification: 'unverified', mode})));
