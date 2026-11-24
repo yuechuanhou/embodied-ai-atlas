@@ -6,6 +6,29 @@ import {harness, ORIGIN} from './helpers.js';
 import {renderMarkdown} from '../src/markdown.js';
 import {candidateView} from '../src/session-view.js';
 import {readerURL, readingContext} from '../src/reading-view.js';
+import {validationFixture} from './validation-helpers.js';
+
+test('private validation displays progress, restores after reopening and shows verified results without another model call', async t => {
+  const h = await validationFixture(t), ui = await open(t, h), d = ui.d;
+  d.getElementById('question').value = 'Keep learning while checks run';
+  d.querySelector('[data-proposal-candidate]').click();
+  await until(() => !d.getElementById('proposal-close').disabled && !d.getElementById('proposal-validation-progress').hidden);
+  assert.equal(d.getElementById('proposal-validation').getAttribute('aria-busy'), 'true');
+  d.getElementById('proposal-close').click();
+  const restored = await open(t, h); restored.d.querySelector('[data-proposal-candidate]').click();
+  await until(() => !restored.d.getElementById('proposal-close').disabled);
+  assert.equal(h.world.validation.dispatches.length, 1); assert.equal(h.world.modelCalls.length, 1);
+  assert.equal((await h.machine('claim')).status, 200); assert.equal((await h.machine('report', h.report())).status, 200);
+  h.world.validation.status = 'completed'; h.world.validation.conclusion = 'success';
+  await h.db.prepare('UPDATE proposal_validations SET checked_at=0').run();
+  restored.d.getElementById('proposal-validation-refresh').click();
+  await until(() => restored.d.getElementById('proposal-validation-status').textContent.includes('检查通过'));
+  assert.equal(restored.d.getElementById('proposal-validation-progress').hidden, true);
+  assert.equal(restored.d.querySelectorAll('#proposal-validation-checks li').length, 5);
+  assert.equal(d.getElementById('question').value, 'Keep learning while checks run');
+  assert.equal(h.world.modelCalls.length, 1); assert.equal(h.world.validation.dispatches.length, 1);
+  assert.deepEqual(ui.errors, []); assert.deepEqual(restored.errors, []);
+});
 
 const enabled = {MODEL_PROVIDER: 'anthropic', MODEL_NAME: 'synthetic-test-model', MODEL_API_KEY: 'synthetic-secret', DAILY_CALL_LIMIT: '10', DAILY_TOKEN_LIMIT: '200000'};
 

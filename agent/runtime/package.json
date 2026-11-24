@@ -9,7 +9,8 @@
     "build": "npm run build:client && WRANGLER_SEND_METRICS=false wrangler deploy --dry-run --config wrangler.jsonc --outdir ../../.preview/private-worker",
     "build:stage": "npm run build:client && node scripts/stage-worker.js --dry-run",
     "test": "node --test --test-concurrency=1 test/*.test.js",
-    "build:client": "node scripts/build-client.js"
+    "build:client": "node scripts/build-client.js",
+    "build:gateway": "WRANGLER_SEND_METRICS=false wrangler deploy --dry-run --config wrangler.validation-gateway.jsonc --outdir ../../.preview/validation-gateway"
   },
   "dependencies": {
     "dompurify": "3.4.18",

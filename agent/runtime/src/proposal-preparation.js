@@ -181,14 +181,23 @@ export async function prepareProposal({body, candidate, owner, env, snapshot, sy
   }
 }
 
-export async function proposalRoute({request, env, owner, pathname, searchParams, synchronize, fetchImpl}) {
+export async function proposalRoute({request, env, owner, pathname, searchParams, synchronize, fetchImpl, validation}) {
   const candidateRoute = pathname.match(/^\/api\/candidates\/([a-f0-9-]{36})\/proposals$/);
   const proposalRoute = pathname.match(/^\/api\/proposals\/([a-f0-9-]{36})(\/export)?$/);
   if (!candidateRoute && !proposalRoute) return null;
   const db = env.DB, snapshot = await synchronize(env, request.method === 'POST');
   if (candidateRoute) {
     const candidate = await candidateFor(db, candidateRoute[1], owner);
-    if (request.method === 'POST') return json(await prepareProposal({body: await readJSONRequest(request), candidate, owner, env, snapshot, synchronize, fetchImpl}));
+    if (request.method === 'POST') {
+      const result = await prepareProposal({body: await readJSONRequest(request), candidate, owner, env, snapshot, synchronize, fetchImpl});
+      // The paid generation result is already durable. A failed check dispatch
+      // must never turn it into a lost/failed model call or cause regeneration.
+      if (result.proposal_version && validation) {
+        try {result.validation = await validation.start(env, owner, result.proposal_id, result.proposal_version);}
+        catch {result.validation = {enabled: true, status: 'unavailable', retryable: false};}
+      }
+      return json(result);
+    }
     if (request.method === 'GET') {
       const requestId = searchParams.get('request_id');
       if (requestId) {
@@ -211,7 +220,7 @@ export async function proposalRoute({request, env, owner, pathname, searchParams
     if (proposalRoute[2]) return new Response(JSON.stringify(detail.proposal, null, 2) + '\n', {headers: {
       'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
       'Content-Disposition': 'attachment; filename="atlas-proposal-' + proposalRoute[1] + '-v' + detail.proposal.proposal_version + '.json"'}});
-    return json(detail);
+    return json(validation ? await validation.decorate(env, owner, detail) : detail);
   }
   throw new ApiError(405, 'method_not_allowed');
 }

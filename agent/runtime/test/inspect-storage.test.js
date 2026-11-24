@@ -7,7 +7,7 @@ const account = 'a'.repeat(32), databaseId = '12345678-1234-4234-8234-123456789a
 const env = {CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: 'synthetic-private-token', ATLAS_D1_DATABASE_ID: databaseId};
 const tableNames = ['sessions', 'messages', 'source_records', 'knowledge_candidates', 'candidate_sources',
   'change_proposals', 'proposal_versions', 'proposal_candidates', 'approvals', 'jobs', 'knowledge_snapshots',
-  'runtime_requests', 'runtime_commit_guards', 'usage_daily', 'runtime_sync', 'd1_migrations'];
+  'runtime_requests', 'runtime_commit_guards', 'usage_daily', 'runtime_sync', 'd1_migrations', 'proposal_validations'];
 function harness(change = () => {}) {
   const calls = [];
   const fetchImpl = async (url, init) => {
@@ -22,8 +22,8 @@ function harness(change = () => {}) {
       const body = JSON.parse(init.body); assert.deepEqual(Object.keys(body).sort(), ['params','sql']); assert.deepEqual(body.params, []);
       assert(Object.values(READS).includes(body.sql));
       const rows = body.sql === READS.schema ? [...tableNames.map(name => ({name, type: 'table'})),
-        ...['immutable_proposal_version','immutable_approval'].map(name => ({name, type: 'trigger'}))] :
-        body.sql === READS.migrations ? [{name: '0001_initial.sql'},{name: '0002_private_runtime.sql'}] :
+        ...['immutable_proposal_version','immutable_approval','immutable_validation_binding'].map(name => ({name, type: 'trigger'}))] :
+        body.sql === READS.migrations ? [{name: '0001_initial.sql'},{name: '0002_private_runtime.sql'},{name: '0003_proposal_validation.sql'}] :
         body.sql === READS.foreignKeys ? [] : [{quick_check: 'ok'}];
       result = [{success: true, results: rows}];
     }
@@ -35,7 +35,7 @@ function harness(change = () => {}) {
 
 test('storage inspection issues only fixed reads for the exact existing database, without exporting data or claiming recovery', async () => {
   const h = harness(), result = await inspectStorage(h.options);
-  assert.equal(h.calls.length, 6); assert.equal(result.mutations, false); assert.equal(result.migration_count, 2);
+  assert.equal(h.calls.length, 6); assert.equal(result.mutations, false); assert.equal(result.migration_count, 3);
   assert.equal(result.status, 'storage_read_checks_passed'); assert.equal(result.required_schema_objects, 'present');
   assert.equal(result.retention_window, 'not_inspected'); assert.equal(result.restore_drill, 'pending');
   const output = JSON.stringify(result);

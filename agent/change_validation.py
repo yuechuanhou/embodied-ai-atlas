@@ -109,9 +109,11 @@ class SafeArticleHTML(HTMLParser):
                 require('\\' not in url and not url.startswith('//') and urlsplit(url).scheme.lower() in {'', 'https', 'http'}, 'Unsafe content URL')
 
 
-def validate_change_set(proposal, *, root, current_head):
+def validate_change_set(proposal, *, root, current_head, progress=None):
     """Return build counts; never edits the checkout or calls GitHub."""
     root = Path(root).resolve()
+    notify = progress or (lambda stage, status: None)
+    notify('envelope', 'running')
     validate_proposal(proposal)
     require(proposal['base_commit'] == current_head, 'Repository changed; reconfirm')
     require(proposal['contract_digest'] == contract_digest(root), 'Contract changed; reconfirm')
@@ -121,6 +123,8 @@ def validate_change_set(proposal, *, root, current_head):
         require(path.resolve().parent == (root / 'content').resolve() and not path.is_symlink(), 'Path escapes canonical content')
         actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
         require(actual == item['before_sha256'], 'Before-image changed: ' + name)
+    notify('envelope', 'passed')
+    notify('semantic_validation', 'running')
     before, after = {}, {}
     for name in ('manifest', 'topics', 'anchors', 'architecture'):
         path = 'content/' + name + '.json'
@@ -133,6 +137,7 @@ def validate_change_set(proposal, *, root, current_head):
     except (KeyError, TypeError) as error:
         raise ValueError('Malformed knowledge metadata') from error
 
+    notify('semantic_validation', 'passed')
     with tempfile.TemporaryDirectory() as temp:
         target = Path(temp) / 'atlas'
         target.mkdir()
@@ -142,12 +147,18 @@ def validate_change_set(proposal, *, root, current_head):
         copy_contract_files(root, target)
         for name, item in changes.items():
             (target / name).write_text(item['after_utf8'], encoding='utf-8')
-        for script in ('scripts/validate_content.py', 'build.py'):
+        for stage, script in (('content_validation', 'scripts/validate_content.py'), ('repository_build', 'build.py')):
+            notify(stage, 'running')
             result = subprocess.run([sys.executable, script], cwd=target, capture_output=True, text=True)
             require(result.returncode == 0, 'Candidate validation failed: ' + result.stdout + result.stderr)
+            notify(stage, 'passed')
+        notify('render_regression', 'running')
         built = (target / 'dist/index.html').read_text(encoding='utf-8')
         payload = json.loads(re.search(r'<script id="atlas-data" type="application/json">(.+?)</script>', built, re.S)[1])
         for page in payload['pages']:
             if 'content/' + page['file'] in changes:
                 SafeArticleHTML().feed(page['html'])
+        result = subprocess.run([sys.executable, 'scripts/smoke_test.py'], cwd=target, capture_output=True, text=True)
+        require(result.returncode == 0, 'Candidate rendering regression failed')
+        notify('render_regression', 'passed')
         return {'articles': len(payload['pages']), 'topics': len(payload['topics'])}
