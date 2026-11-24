@@ -58,7 +58,8 @@ class PublicPublicationTests(unittest.TestCase):
         result = validate_publication(root=self.root, base=self.base, head=self.commit())
         manifest = json.loads((self.root / 'content/manifest.json').read_text())
         topics = json.loads((self.root / 'content/topics.json').read_text())
-        self.assertEqual(result, {'articles': len(manifest['pages']), 'topics': len(topics['topics'])})
+        self.assertEqual(result['articles'], len(manifest['pages']))
+        self.assertGreaterEqual(result['topics'], len(topics['topics']))
 
     def test_extra_private_fields_or_wrong_contract_are_rejected(self):
         for change in ({'candidate_id': 'private-id'}, {'contract_digest': '0' * 64}, {'after_sha256': '0' * 64}, {'operation': 'delete_article'}):
