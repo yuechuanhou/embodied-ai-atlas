@@ -39,9 +39,16 @@ export function createApplication({fetchImpl = fetch, renderWorkbench = null} = 
           model: {ready: config.ready, provider: config.provider}, usage: usage || {calls: 0, reserved_tokens: 0}});
       }
       if (pathname === '/api/sync' && method === 'POST') {
-        await synchronize(env, true);
-        const sync = await db.prepare('SELECT repo_head,published_revision,checked_at,error_code FROM runtime_sync WHERE id=1').first();
-        return json(sync, sync.error_code ? 503 : 200);
+        const requestedAt = epoch(), before = await db.prepare("SELECT revision FROM knowledge_snapshots WHERE status='active'").first();
+        const snapshot = await synchronize(env, true), row = await db.prepare('SELECT * FROM runtime_sync WHERE id=1').first();
+        const sync = {repo_head: row.repo_head, published_revision: row.published_revision, checked_at: row.checked_at,
+          error_code: row.error_code, index_revision: snapshot?.revision || null};
+        if (row.lock_token && row.lock_until > epoch()) return json({...sync, error: 'knowledge_sync_in_progress'}, 409);
+        if (row.error_code) return json({...sync, error: row.error_code}, 503);
+        if (!snapshot || row.checked_at < requestedAt || !row.repo_head || row.published_revision !== snapshot.revision)
+          return json({...sync, error: 'knowledge_sync_unconfirmed'}, 503);
+        return json({...sync, outcome: row.repo_head !== snapshot.revision ? 'publishing' : before?.revision === snapshot.revision ? 'current' : 'updated',
+          articles: snapshot.articles.length, topics: snapshot.topics.length});
       }
       if (pathname.startsWith('/api/proposals/') || /^\/api\/candidates\/[a-f0-9-]{36}\/proposals$/.test(pathname)) {
         const response = await proposalRoute({request, env, owner, pathname, searchParams, synchronize, fetchImpl});

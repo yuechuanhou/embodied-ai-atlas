@@ -9,6 +9,43 @@ import {readerURL, readingContext} from '../src/reading-view.js';
 
 const enabled = {MODEL_PROVIDER: 'anthropic', MODEL_NAME: 'synthetic-test-model', MODEL_API_KEY: 'synthetic-secret', DAILY_CALL_LIMIT: '10', DAILY_TOKEN_LIMIT: '200000'};
 
+test('manual sync immediately shows visible progress, refreshes candidate labels and preserves the conversation and next draft', async t => {
+  const h = await harness(); t.after(h.dispose); await h.sync(); const id = await h.session();
+  await h.request('/api/sessions/' + id + '/messages', {method: 'POST', body: {request_id: randomUUID(), message: 'zzzzSyncFixture', reading_context: {}}});
+  const candidate = (await h.request('/api/sessions/' + id)).data.candidates[0], article = h.world.snapshot.articles.find(a => a.id === 'sensors-and-estimation');
+  await h.request('/api/candidates/' + candidate.id, {method: 'PATCH', body: {version: 1, snapshot_revision: h.world.snapshot.revision,
+    title: candidate.title, draft_markdown: candidate.draft_markdown, primary_domain: article.primary_domain, article_id: article.id, status: 'drafting', evidence: null}});
+  let release, requests = 0; const gate = new Promise(resolve => {release = resolve;});
+  const ui = await open(t, h, async (url, init) => {if (url === '/api/sync' && init.method === 'POST') {requests++; await gate;}}), d = ui.d;
+  const title = d.getElementById('conversation-title').textContent, messages = d.getElementById('messages').textContent;
+  d.getElementById('question').value = 'Keep my next learning question';
+  h.world.main = 'b'.repeat(40); h.world.snapshot = {...h.world.snapshot, revision: h.world.main,
+    articles: h.world.snapshot.articles.map(a => a.id === article.id ? {...a, title: 'Synced reference title'} : a)};
+  d.getElementById('refresh').click(); d.getElementById('refresh').click();
+  assert.equal(d.getElementById('sync-feedback').hidden, false); assert.match(d.getElementById('sync-button-label').textContent, /正在同步/);
+  assert.equal(d.getElementById('refresh').getAttribute('aria-busy'), 'true'); assert.equal(d.getElementById('refresh').disabled, true);
+  await until(() => requests === 1); release(); await until(() => !d.getElementById('refresh').disabled);
+  assert.match(d.getElementById('sync-feedback').textContent, /知识内容已更新/);
+  assert(d.getElementById('sync-feedback').textContent.includes(h.world.snapshot.articles.length + ' 篇文章'));
+  assert(d.getElementById('sync-feedback').textContent.includes(h.world.snapshot.topics.length + ' 个知识点'));
+  assert(d.querySelector('.metadata').textContent.includes('Synced reference title'));
+  assert.equal(d.getElementById('conversation-title').textContent, title); assert.equal(d.getElementById('messages').textContent, messages);
+  assert.equal(d.getElementById('question').value, 'Keep my next learning question');
+  assert.equal(d.getElementById('refresh').getAttribute('aria-busy'), 'false');
+  assert.equal(requests, 1); assert.equal(h.world.modelCalls.length, 0); assert.deepEqual(ui.errors, []);
+});
+
+test('manual sync visibly distinguishes already current, failure and another in-progress request without false success', async t => {
+  const h = await harness(); t.after(h.dispose); await h.sync(); const ui = await open(t, h), d = ui.d;
+  const click = async () => {d.getElementById('refresh').click(); await until(() => !d.getElementById('refresh').disabled); return d.getElementById('sync-feedback').textContent;};
+  assert.match(await click(), /内容已是最新/);
+  h.world.failed = true; assert.match(await click(), /暂时无法连接知识来源/);
+  h.world.failed = false;
+  await h.db.prepare('UPDATE runtime_sync SET lock_token=?,lock_until=? WHERE id=1').bind('synthetic-lock', Math.floor(Date.now()/1000)+120).run();
+  assert.match(await click(), /另一个请求正在同步/);
+  assert.equal(h.world.modelCalls.length, 0); assert.deepEqual(ui.errors, []);
+});
+
 test('automatic private architecture advice restores after refresh, stays safe text and can be copied without another model call', async t => {
   const h = await harness(enabled); t.after(h.dispose); await h.sync(); const id = await h.session();
   h.world.modelResponse = {answer: 'Continue learning while the placement remains private.', cited_source_ids: [], candidate: {
@@ -190,6 +227,8 @@ async function until(check) {for (let i = 0; i < 400 && !check(); i++) await new
 async function open(t, h, intercept = null, url = ORIGIN) {
   const errors = [], vc = new VirtualConsole(); vc.on('jsdomError', e => errors.push(e.message));
   const dom = new JSDOM((await h.request('/')).data, {url, runScripts: 'dangerously', virtualConsole: vc, beforeParse(w) {
+    // dispatchFetch uses Node's Request, so its abort signal must share that realm.
+    w.AbortController = AbortController;
     w.HTMLDialogElement.prototype.showModal = function () {this.open = true;};
     w.HTMLDialogElement.prototype.close = function () {this.open = false; this.dispatchEvent(new w.Event('close'));};
     w.fetch = async (url, init = {}) => {
