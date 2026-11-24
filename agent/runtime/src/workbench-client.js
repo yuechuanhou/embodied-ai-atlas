@@ -1,6 +1,8 @@
 import {renderMarkdown} from './markdown.js';
 import {AGENT_NAME, createReadingView} from './reading-view.js';
 import {createCandidateEditor} from './candidate-editor.js';
+import {createProposalEditor} from './proposal-editor.js';
+import {candidateAdvice} from './candidate-advice.js';
 
 const get = id => document.getElementById(id);
 const node = (tag, text = '', cls = '') => {const el = document.createElement(tag); el.textContent = text; if (cls) el.className = cls; return el;};
@@ -10,6 +12,7 @@ let deleting = false, deleteTarget = null, deleteReturn = null;
 let savingSession = false, renameTarget = null, renameReturn = null, menuTarget = null, menuTrigger = null;
 let listToken = 0;
 let currentCandidates = [];
+let proposalBusy = false;
 const hints = {authentication_required: '请重新登录私人工作台。', invalid_identity: '登录已失效，请刷新并重新登录。', owner_required: '此工作台仅允许 Owner 使用。',
   knowledge_not_ready: '知识快照尚未就绪，请同步内容后再试。', daily_model_budget_exceeded: '已达到今天配置的模型调用上限。', model_request_incomplete: '模型请求未完成；请先核对结果，避免重复提交。',
   model_output_truncated: '模型输出达到上限，本次回答和草稿未保存。请核对结果；重新发起会再次调用模型。',
@@ -27,7 +30,7 @@ const report = error => {get('error').textContent = hints[error.message] || '操
 const handle = fn => async event => {try {await fn(event);} catch (error) {report(error);}};
 const announce = text => {get('announcer').textContent = text;};
 function controls() {
-  const locked = busy || deleting || savingSession;
+  const locked = busy || deleting || savingSession || proposalBusy;
   if (locked) closeSessionMenu(false);
   get('send').disabled = !ready || locked;
   get('more').disabled = !ready || locked;
@@ -82,6 +85,7 @@ function candidates(items) {
     const article = row('目标文章', view.article ? safeLink(view.article.title, view.article.url) : '尚未指定'); if (view.article) article.append(node('code', view.article.id));
     row('Topic 归属', '尚未指定');
     card.append(metadata);
+    if (view.organization) card.append(candidateAdvice(document, candidate));
     if (view.unresolved || view.domain_mismatch) card.append(node('p', '归属信息与当前知识快照不一致，需要重新核对。', 'candidate-warning'));
     if (view.article_topics?.length) {
       const refs = node('details'); refs.append(node('summary', '文章已有 Topic · 归类参考'));
@@ -94,7 +98,11 @@ function candidates(items) {
     const actions = node('div', '', 'candidate-actions'), review = node('button', '审阅整理'); review.type = 'button'; review.dataset.candidateId = candidate.id;
     review.onclick = () => candidateEditor.open(candidate.id, review);
     const download = node('a', '导出 Markdown'); download.href = '/api/candidates/' + candidate.id + '/export?version=' + candidate.version; download.download = '';
-    actions.append(review, download); card.append(actions);
+    const canPrepare = !view.organization?.blocks_proposal && !!view.article;
+    const proposal = node('button', candidate.status === 'ready' && view.review_is_current ? '入库提案' : '准备入库提案'); proposal.type = 'button'; proposal.dataset.proposalCandidate = candidate.id;
+    proposal.hidden = !canPrepare;
+    proposal.onclick = () => candidate.status === 'ready' && view.review_is_current ? proposalEditor.open(candidate, proposal) : candidateEditor.open(candidate.id, proposal);
+    actions.append(review, download, proposal); card.append(actions);
     target.append(card);
   }
 }
@@ -366,7 +374,7 @@ get('toggle-candidates').onclick = () => setPanel('candidates', get('app').class
 get('close-history').onclick = () => setPanel('history', false); get('close-candidates').onclick = () => setPanel('candidates', false);
 get('scrim').onclick = () => {setPanel('history', false); setPanel('candidates', false);};
 document.addEventListener('keydown', event => {
-  if (get('delete-dialog').open || get('rename-dialog').open || get('candidate-dialog').open) return;
+  if (get('delete-dialog').open || get('rename-dialog').open || get('candidate-dialog').open || get('proposal-dialog').open) return;
   if (menuTarget) {
     const items = [...get('session-menu').querySelectorAll('[role=menuitem]')], index = items.indexOf(document.activeElement);
     if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
@@ -390,8 +398,11 @@ window.addEventListener('resize', updatePanels);
 if (innerWidth <= 760) get('app').classList.add('history-closed'); updatePanels();
 for (const button of document.querySelectorAll('[data-prompt]')) button.onclick = () => {get('question').value = button.dataset.prompt; autosize(); get('question').focus();};
 const reading = createReadingView({get, onContext: value => {context = value;}, onLayout: updatePanels, getActive: () => active});
-const candidateEditor = createCandidateEditor({get, api, announce, isBusy: () => busy || deleting || savingSession,
-  onSaved: saved => {if (saved.session_id === active) {candidates(currentCandidates.map(c => c.id === saved.id ? saved : c)); controls();}}});
+const proposalEditor = createProposalEditor({get, api, announce, isBusy: () => busy || deleting || savingSession,
+  onBusy: value => {proposalBusy = value; controls();}});
+const candidateEditor = createCandidateEditor({get, api, announce, isBusy: () => busy || deleting || savingSession || proposalBusy,
+  onSaved: saved => {if (saved.session_id === active) {candidates(currentCandidates.map(c => c.id === saved.id ? saved : c)); controls();}},
+  onPrepare: saved => proposalEditor.open(saved, [...get('candidates').querySelectorAll('[data-proposal-candidate]')].find(b => b.dataset.proposalCandidate === saved.id), {prepare: true})});
 get('private-context').textContent = context.article_id ? '阅读上下文 · ' + context.article_id : '';
 candidates([]); controls();
 (async () => {try {

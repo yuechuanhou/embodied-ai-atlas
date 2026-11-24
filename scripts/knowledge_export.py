@@ -10,7 +10,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from agent.revisions import canonical_bytes, contract_digest
+from agent.revisions import CONTRACT_FILES, canonical_bytes, contract_digest
 
 
 def plain(value):
@@ -42,7 +42,12 @@ def export_knowledge(root, dist, payload):
     revision = source_revision(root)
     snapshot = {'schema_version': 1, 'revision': revision, 'contract_digest': contract_digest(root),
                 'domains': payload['sections'], 'architecture': payload['architecture'],
-                'topics': payload['topics'], 'relations': payload['relations'], 'articles': articles}
+                'topics': payload['topics'], 'relations': payload['relations'], 'articles': articles,
+                # Public repository rules and raw metadata, bound to this exact build.
+                # Private proposal preparation can read full rules without trusting
+                # a second, hand-maintained prompt copy or an unpinned main fetch.
+                'proposal_context': {name: (root / name).read_text(encoding='utf-8')
+                                     for name in CONTRACT_FILES}}
     body = canonical_bytes(snapshot)
     content_digest = hashlib.sha256(body).hexdigest()
     index_path = f'knowledge-index.{content_digest}.json'

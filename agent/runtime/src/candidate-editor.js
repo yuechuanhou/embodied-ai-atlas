@@ -1,6 +1,7 @@
 import {renderMarkdown} from './markdown.js';
+import {candidateAdvice} from './candidate-advice.js';
 
-export function createCandidateEditor({get, api, announce, onSaved, isBusy}) {
+export function createCandidateEditor({get, api, announce, onSaved, onPrepare, isBusy}) {
   let detail = null, saving = false, loading = false, trigger = null;
   const dialog = get('candidate-dialog'), form = get('candidate-form');
   const error = e => {get('candidate-error').textContent = ({candidate_version_changed: '候选已在其他页面更新。你的输入仍保留；请先复制需要的内容，再关闭并重新打开最新版本。',
@@ -10,6 +11,7 @@ export function createCandidateEditor({get, api, announce, onSaved, isBusy}) {
     candidate_evidence_required: '请填写来源或个人经验、支持的结论，并确认已核对本版草稿。',
     invalid_evidence_reference: '官方文档和论文请使用完整 HTTPS 链接，不包含账号凭据。',
     invalid_candidate_placement: '归属与当前知识结构不一致，请重新选择。',
+    candidate_architecture_review_required: '这条候选需要先讨论归属。若你确认现有架构能容纳，请明确勾选按现有架构归档；此操作不会批准架构修改。',
     authentication_required: '请重新登录私人工作台。',
   })[e.message] || '暂时无法保存，请保留输入，稍后重试。';};
   const option = (value, label) => {const el = document.createElement('option'); el.value = value; el.textContent = label; return el;};
@@ -18,6 +20,7 @@ export function createCandidateEditor({get, api, announce, onSaved, isBusy}) {
     select.replaceChildren(option('', '尚未指定 · 正式提案时决定'));
     for (const article of detail.articles.filter(a => a.primary_domain === domain)) select.append(option(article.id, article.title));
     select.value = [...select.options].some(o => o.value === selected) ? selected : '';
+    get('candidate-prepare').disabled = saving || loading || !select.value || !domain;
   }
   function evidenceFields() {
     const enabled = !!get('candidate-evidence-kind').value;
@@ -30,6 +33,7 @@ export function createCandidateEditor({get, api, announce, onSaved, isBusy}) {
     for (const field of form.querySelectorAll('input,textarea,select,button')) field.disabled = saving || loading;
     evidenceFields(); get('candidate-save').textContent = saving ? '正在保存…' : '保存私人候选';
     get('candidate-save').disabled = saving || loading || !detail; get('candidate-export').hidden = !detail || loading;
+    get('candidate-prepare').disabled = saving || loading || !detail || !get('candidate-article').value || !get('candidate-domain').value;
   }
   function preview() {get('candidate-preview').replaceChildren(renderMarkdown(get('candidate-body').value || '尚无正文。', document));}
   async function open(id, source) {
@@ -44,6 +48,9 @@ export function createCandidateEditor({get, api, announce, onSaved, isBusy}) {
       get('candidate-domain').replaceChildren(option('', '尚未归类'), ...detail.domains.map(d => option(d.id, d.title)));
       get('candidate-domain').value = placement.primary_domain || ''; articleOptions(placement.article_id || '');
       get('candidate-state').value = c.status; get('candidate-evidence-kind').value = detail.evidence?.kind || '';
+      get('candidate-organization').replaceChildren(candidateAdvice(document, c));
+      get('candidate-architecture-resolution').hidden = JSON.parse(c.placement_json).organization?.status !== 'architecture_review';
+      get('candidate-architecture-reviewed').checked = false;
       get('candidate-reference').value = detail.evidence?.reference || ''; get('candidate-supports').value = detail.evidence?.metadata.supports || '';
       get('candidate-confirm').checked = false;
       get('candidate-version').textContent = '私人候选 v' + c.version + ' · 当前知识 ' + (detail.snapshot_revision?.slice(0, 8) || '尚未同步') +
@@ -54,6 +61,7 @@ export function createCandidateEditor({get, api, announce, onSaved, isBusy}) {
     finally {loading = false; get('candidate-loading').hidden = true; controls(); get(detail ? 'candidate-title' : 'candidate-cancel').focus();}
   }
   get('candidate-domain').onchange = () => articleOptions();
+  get('candidate-article').onchange = controls;
   get('candidate-evidence-kind').onchange = evidenceFields;
   get('candidate-body').oninput = preview;
   form.addEventListener('input', e => {if (e.target.id !== 'candidate-confirm') get('candidate-confirm').checked = false;});
@@ -65,17 +73,21 @@ export function createCandidateEditor({get, api, announce, onSaved, isBusy}) {
   });
   form.onsubmit = async event => {
     event.preventDefault(); if (saving || !detail || isBusy()) return;
+    const prepare = event.submitter?.id === 'candidate-prepare';
     const kind = get('candidate-evidence-kind').value;
     const body = {version: detail.candidate.version, snapshot_revision: detail.snapshot_revision,
       title: get('candidate-title').value, draft_markdown: get('candidate-body').value,
       primary_domain: get('candidate-domain').value || null, article_id: get('candidate-article').value || null,
-      status: get('candidate-state').value, evidence: kind ? {kind, reference: get('candidate-reference').value,
+      status: prepare ? 'ready' : get('candidate-state').value, evidence: kind ? {kind, reference: get('candidate-reference').value,
         supports: get('candidate-supports').value, owner_confirmed: get('candidate-confirm').checked} : null};
+    if (!get('candidate-architecture-resolution').hidden) body.architecture_reviewed = get('candidate-architecture-reviewed').checked;
     saving = true; controls(); get('candidate-error').textContent = '';
-    try {const saved = await api('/api/candidates/' + detail.candidate.id, 'PATCH', body); onSaved(saved.candidate);
+    let next = null;
+    try {const saved = await api('/api/candidates/' + detail.candidate.id, 'PATCH', body); next = saved.candidate; onSaved(saved.candidate);
       announce('私人候选已保存，尚未创建公开提案。'); dialog.close();}
     catch (e) {error(e);}
     finally {saving = false; controls();}
+    if (prepare && next) await onPrepare(next);
   };
   return {open};
 }

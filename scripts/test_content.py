@@ -12,7 +12,7 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from agent.revisions import copy_contract_files
+from agent.revisions import CONTRACT_FILES, canonical_bytes, copy_contract_files
 
 
 class ContentContracts(unittest.TestCase):
@@ -90,6 +90,13 @@ class ContentContracts(unittest.TestCase):
         self.assertTrue(any(s['level'] == 4 and s['text'] == 'Snapshot fixture body.' for s in page['sections']))
         self.assertNotIn('messages', snapshot)
         self.assertNotIn('source_files', snapshot)
+        rules = snapshot['proposal_context']
+        self.assertEqual(set(rules), set(CONTRACT_FILES))
+        for name in CONTRACT_FILES:
+            self.assertEqual(rules[name], (self.root / name).read_text(encoding='utf-8'))
+        hashes = {name: hashlib.sha256(body.encode('utf-8')).hexdigest()
+                  for name, body in rules.items()}
+        self.assertEqual(hashlib.sha256(canonical_bytes(hashes)).hexdigest(), snapshot['contract_digest'])
 
     def test_duplicate_relation_is_rejected(self):
         registry = self.read("content/topics.json")
