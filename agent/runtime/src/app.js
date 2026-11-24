@@ -5,6 +5,7 @@ import {modelConfiguration} from './model.js';
 import {sendMessage} from './chat.js';
 import {candidateView, sessionPinned, sessionTitle, validatedSessionPatch} from './session-view.js';
 import {candidateDetail, candidateFor, exportCandidate, saveCandidate} from './candidate-review.js';
+import {proposalRoute} from './proposal-preparation.js';
 
 export function createApplication({fetchImpl = fetch, renderWorkbench = null} = {}) {
   const authenticate = createAuthenticator(fetchImpl), synchronize = createKnowledgeSync(fetchImpl);
@@ -41,6 +42,10 @@ export function createApplication({fetchImpl = fetch, renderWorkbench = null} = 
         await synchronize(env, true);
         const sync = await db.prepare('SELECT repo_head,published_revision,checked_at,error_code FROM runtime_sync WHERE id=1').first();
         return json(sync, sync.error_code ? 503 : 200);
+      }
+      if (pathname.startsWith('/api/proposals/') || /^\/api\/candidates\/[a-f0-9-]{36}\/proposals$/.test(pathname)) {
+        const response = await proposalRoute({request, env, owner, pathname, searchParams, synchronize, fetchImpl});
+        if (response) return response;
       }
       const candidateRoute = pathname.match(/^\/api\/candidates\/([a-f0-9-]{36})(\/export)?$/);
       if (candidateRoute) {

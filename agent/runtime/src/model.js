@@ -59,19 +59,20 @@ export function validateModelResult(value, snapshot, sources, candidates) {
   }
   return value;
 }
-export async function callModel(env, config, input, fetchImpl) {
+export async function callModel(env, config, input, fetchImpl, output = {}) {
+  const schema = output.schema || resultSchema, name = output.name || 'atlas_learning_turn';
   let url, headers, body;
   if (config.provider === 'openai') {
     url = 'https://api.openai.com/v1/responses';
     headers = {'Authorization': 'Bearer ' + env.MODEL_API_KEY, 'Content-Type': 'application/json'};
     body = {model: env.MODEL_NAME, instructions: input.instructions, input: input.input,
       max_output_tokens: config.outputTokens, store: false,
-      text: {format: {type: 'json_schema', name: 'atlas_learning_turn', strict: true, schema: resultSchema}}};
+      text: {format: {type: 'json_schema', name, strict: true, schema}}};
   } else {
     url = 'https://api.anthropic.com/v1/messages';
     headers = {'x-api-key': env.MODEL_API_KEY, 'anthropic-version': '2026-10-21', 'Content-Type': 'application/json'};
     body = {model: env.MODEL_NAME, max_tokens: config.outputTokens, system: input.instructions,
-      output_config: {format: {type: 'json_schema', schema: resultSchema}},
+      output_config: {format: {type: 'json_schema', schema}},
       messages: [{role: 'user', content: input.input}]};
     // This model defaults to adaptive thinking, which shares max_tokens with
     // the JSON answer and draft. No tools run in this learning-turn adapter.
@@ -86,20 +87,20 @@ export async function callModel(env, config, input, fetchImpl) {
   catch { throw new ApiError(502, 'model_request_incomplete'); }
   requireValue(response.ok, 502, 'model_provider_error');
   const result = JSON.parse(await readText(response, 150_000));
-  let output, tokens;
+  let outputText, tokens;
   if (config.provider === 'openai') {
     if (result.incomplete_details?.reason === 'max_output_tokens') throw new ApiError(502, 'model_output_truncated');
     requireValue(result.status === 'completed', 502, 'model_output_incomplete');
-    output = result.output?.flatMap(item => item.content || []).filter(item => item.type === 'output_text').map(item => item.text).join('');
+    outputText = result.output?.flatMap(item => item.content || []).filter(item => item.type === 'output_text').map(item => item.text).join('');
     tokens = result.usage?.total_tokens;
   } else {
     if (result.stop_reason === 'max_tokens') throw new ApiError(502, 'model_output_truncated');
     if (result.stop_reason === 'refusal') throw new ApiError(502, 'model_refused');
     if (result.stop_reason === 'model_context_window_exceeded') throw new ApiError(502, 'model_context_limit');
     requireValue(result.stop_reason === 'end_turn', 502, 'model_output_incomplete');
-    output = result.content?.filter(item => item.type === 'text').map(item => item.text).join('');
+    outputText = result.content?.filter(item => item.type === 'text').map(item => item.text).join('');
     tokens = (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0) +
       (result.usage?.cache_creation_input_tokens || 0) + (result.usage?.cache_read_input_tokens || 0);
   }
-  try { return {value: JSON.parse(output), tokens}; } catch { throw new ApiError(502, 'invalid_model_result'); }
+  try { return {value: JSON.parse(outputText), tokens}; } catch { throw new ApiError(502, 'invalid_model_result'); }
 }

@@ -1183,9 +1183,22 @@ html:not([data-reading-mode=research]) .message.assistant>.message-avatar {posit
 .candidate-private-note {margin-top:20px;padding:12px 14px;border-radius:9px;background:var(--paper-2);color:var(--muted)}
 .candidate-dialog .dialog-actions {display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 .candidate-dialog .dialog-actions a {margin-right:auto}
+.proposal-dialog {width:min(1040px,calc(100vw - 32px));max-width:1040px;max-height:calc(100dvh - 32px);overflow:auto;padding:28px}
+.proposal-dialog header h2 {margin:0}.proposal-dialog p {overflow-wrap:anywhere;line-height:1.7}
+.proposal-tools {display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:18px 0}
+.proposal-tools select {font:inherit;background:var(--paper);color:var(--ink);border:1px solid var(--line);padding:8px;border-radius:8px}
+.proposal-tools a {color:var(--accent);margin-left:auto}
+#proposal-progress {display:flex;align-items:center;gap:12px;color:var(--accent);padding:14px 0}
+#proposal-progress[hidden] {display:none}#proposal-progress .orbit-icon {width:36px;height:36px;flex:none}
+.proposal-review,.proposal-limits {padding:14px 18px;background:var(--paper-2);border-radius:10px;margin:18px 0}
+.proposal-addition {border-left:3px solid var(--accent);padding:6px 18px;margin:18px 0;overflow-wrap:anywhere}
+.proposal-dialog details {margin:16px 0}.proposal-dialog summary {cursor:pointer;color:var(--accent)}
+.proposal-diff {white-space:pre-wrap;overflow-wrap:anywhere;max-height:65dvh;overflow:auto;padding:14px;background:var(--paper-2);border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.6}
+#proposal-error {white-space:pre-wrap}.proposal-dialog .dialog-actions {display:flex;gap:12px;flex-wrap:wrap}
 @media(max-width:600px) {
   .candidate-dialog {width:calc(100vw - 20px);max-height:calc(100dvh - 20px);padding:18px}
   .candidate-field-grid {grid-template-columns:1fr;gap:0}
+  .proposal-dialog {width:calc(100vw - 20px);max-height:calc(100dvh - 20px);padding:18px}
 }
 @media(prefers-reduced-motion:reduce) {
   *,*::before,*::after {

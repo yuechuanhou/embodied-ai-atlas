@@ -9,6 +9,69 @@ import {readerURL, readingContext} from '../src/reading-view.js';
 
 const enabled = {MODEL_PROVIDER: 'anthropic', MODEL_NAME: 'synthetic-test-model', MODEL_API_KEY: 'synthetic-secret', DAILY_CALL_LIMIT: '10', DAILY_TOKEN_LIMIT: '200000'};
 
+async function proposalFixture(t) {
+  const h = await harness(enabled); t.after(h.dispose); await h.sync(); const id = await h.session();
+  const article = h.world.snapshot.articles.find(a => a.id === 'sensors-and-estimation');
+  h.world.modelResponse = {answer: 'Synthetic response', cited_source_ids: [], candidate: {candidate_id: null, title: 'Synthetic addition', markdown: 'A bounded synthetic observation.', article_id: article.id, primary_domain: article.primary_domain}};
+  await h.request('/api/sessions/' + id + '/messages', {method: 'POST', body: {request_id: randomUUID(), message: 'Synthetic addition', reading_context: {}}});
+  const candidate = (await h.request('/api/sessions/' + id)).data.candidates[0];
+  assert.equal((await h.request('/api/candidates/' + candidate.id, {method: 'PATCH', body: {version: 1, snapshot_revision: h.world.snapshot.revision,
+    title: candidate.title, draft_markdown: candidate.draft_markdown, primary_domain: article.primary_domain, article_id: article.id, status: 'ready',
+    evidence: {kind: 'experience', reference: 'Synthetic lab record', supports: 'Supports the synthetic observation only.', owner_confirmed: true}}})).status, 200);
+  h.world.modelResponse = {decision: 'extend', narrative: 'concept', addition_markdown: '## Synthetic addition\n\nA **bounded** synthetic observation.',
+    reason: 'Adds a synthetic condition.', editorial_notes: 'Check technical meaning and public scope. <img src=x onerror=bad()>'};
+  return {h, id, candidate};
+}
+
+test('proposal preparation shows complete private differences and immutable versions after reload without a second model call', async t => {
+  const {h, candidate} = await proposalFixture(t), ui = await open(t, h), d = ui.d;
+  d.querySelector('[data-proposal-candidate]').click();
+  await until(() => !d.getElementById('proposal-generate').disabled);
+  assert.equal(d.getElementById('proposal-dialog').open, true);
+  d.getElementById('proposal-generate').click();
+  await until(() => d.getElementById('proposal-content').querySelector('.proposal-diff'));
+  assert.equal(d.querySelectorAll('#proposal-content .proposal-diff').length, 2);
+  assert.match(d.getElementById('proposal-status').textContent, /私人提案 v1/);
+  assert(d.getElementById('proposal-content').textContent.includes('整仓语义校验'));
+  assert.equal(d.querySelector('#proposal-content img'), null);
+  assert.match(d.getElementById('proposal-export').href, /export\?version=1$/);
+  await until(() => !d.getElementById('proposal-close').disabled);
+  d.getElementById('proposal-close').click(); assert.equal(d.activeElement.dataset.proposalCandidate, candidate.id);
+  const calls = h.world.modelCalls.length, restored = await open(t, h);
+  restored.d.querySelector('[data-proposal-candidate]').click();
+  await until(() => restored.d.getElementById('proposal-content').querySelector('.proposal-diff'));
+  assert.equal(h.world.modelCalls.length, calls); assert.deepEqual(ui.errors, []); assert.deepEqual(restored.errors, []);
+});
+
+test('a lost proposal response is reconciled from its persisted request without replaying the model', async t => {
+  const {h} = await proposalFixture(t); let lost = false;
+  const ui = await open(t, h, async (url, init) => {
+    if (!lost && url.endsWith('/proposals') && init.method === 'POST') {
+      lost = true; const result = await h.request(url, {method: 'POST', body: JSON.parse(init.body)}); assert.equal(result.status, 200);
+      throw new Error('Synthetic dropped response');
+    }
+  });
+  const d = ui.d; d.querySelector('[data-proposal-candidate]').click(); await until(() => !d.getElementById('proposal-generate').disabled);
+  d.getElementById('proposal-generate').click(); await until(() => !d.getElementById('proposal-check').hidden);
+  const calls = h.world.modelCalls.length; d.getElementById('proposal-check').click();
+  await until(() => d.getElementById('proposal-content').querySelector('.proposal-diff'));
+  assert.equal(h.world.modelCalls.length, calls); assert.equal((await h.db.prepare('SELECT COUNT(*) n FROM proposal_versions').first()).n, 1);
+  assert.deepEqual(ui.errors, []);
+});
+
+test('a failed preview read after successful generation retains reconciliation instead of enabling another paid generation', async t => {
+  const {h} = await proposalFixture(t); let lost = false;
+  const ui = await open(t, h, async (url, init) => {
+    if (!lost && url.startsWith('/api/proposals/') && init.method === 'GET') {lost = true; throw new Error('Synthetic failed preview read');}
+  });
+  const d = ui.d; d.querySelector('[data-proposal-candidate]').click(); await until(() => !d.getElementById('proposal-generate').disabled);
+  d.getElementById('proposal-generate').click(); await until(() => !d.getElementById('proposal-check').hidden);
+  assert.equal(d.getElementById('proposal-generate').disabled, true);
+  const calls = h.world.modelCalls.length; d.getElementById('proposal-check').click();
+  await until(() => d.getElementById('proposal-content').querySelector('.proposal-diff'));
+  assert.equal(h.world.modelCalls.length, calls); assert.deepEqual(ui.errors, []);
+});
+
 async function reviewFixture(t, intercept = null) {
   const h = await harness(); t.after(h.dispose); await h.sync(); const id = await h.session();
   await h.request('/api/sessions/' + id + '/messages', {method: 'POST', body: {request_id: randomUUID(), message: 'zzzzPrivateReviewConcept', reading_context: {}}});
