@@ -30,6 +30,10 @@ runs:
       run: |
         npm run build --prefix agent/runtime
         npm run build:stage --prefix agent/runtime
+        npm run build:gateway --prefix agent/runtime
     - name: Test Owner authentication, D1, synchronization and deployment boundaries
       shell: bash
       run: npm test --prefix agent/runtime
+    - name: Test the private validation runner with synthetic proposals
+      shell: bash
+      run: python scripts/test_private_validation.py

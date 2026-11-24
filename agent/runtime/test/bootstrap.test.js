@@ -16,7 +16,7 @@ function harness({existing = false, incomplete = false, failure = false} = {}) {
     const body = JSON.parse(init.body);
     if (url.endsWith('/database')) {assert.deepEqual(body, {name: DATABASE_NAME}); result = {name: DATABASE_NAME, uuid: databaseId};}
     else if (body.sql.includes('sqlite_master')) result = [{success: true, results: (incomplete ? [] : ['d1_migrations', 'sessions', 'messages', 'approvals', 'knowledge_snapshots', 'runtime_requests', 'runtime_sync']).map(name => ({name}))}];
-    else {assert.equal(body.sql, 'SELECT name FROM d1_migrations ORDER BY name'); result = [{success: true, results: [{name: '0001_initial.sql'}, {name: '0002_private_runtime.sql'}]}];}
+    else {assert.equal(body.sql, 'SELECT name FROM d1_migrations ORDER BY name'); result = [{success: true, results: [{name: '0001_initial.sql'}, {name: '0002_private_runtime.sql'}, {name: '0003_proposal_validation.sql'}]}];}
     return Response.json({success: true, result});
   };
   return {calls, migrations, masked, options: {env, fetchImpl, migrate: async id => migrations.push(id), mask: id => masked.push(id)}};

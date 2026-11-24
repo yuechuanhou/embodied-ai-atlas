@@ -1,4 +1,4 @@
-import {Miniflare, createFetchMock} from 'miniflare';
+import {Miniflare, createFetchMock, kCurrentWorker} from 'miniflare';
 import {exportJWK, generateKeyPair, SignJWT} from 'jose';
 import {createHash} from 'node:crypto';
 import {readFile, readdir} from 'node:fs/promises';
@@ -19,7 +19,7 @@ export async function token(overrides = {}) {
     .setProtectedHeader({alg: 'RS256', kid: 'test-key'}).sign(privateKey);
 }
 
-export async function harness(bindings = {}) {
+export async function harness(bindings = {}, configureMock = null) {
   const buildManifest = JSON.parse(await readFile(path.join(ROOT, 'dist/knowledge-manifest.json'), 'utf8'));
   const initial = JSON.parse(await readFile(path.join(ROOT, 'dist', buildManifest.index_path), 'utf8'));
   const world = {snapshot: {...initial, revision: 'a'.repeat(40)}, main: 'a'.repeat(40), failed: false,
@@ -53,7 +53,9 @@ export async function harness(bindings = {}) {
       return {statusCode: 200, data: JSON.stringify(data)};
     }).delay(100).persist();
   }
+  if (configureMock) configureMock(mock, world);
   const mf = new Miniflare({modules: true, modulesRoot: ROOT, scriptPath: path.join(ROOT, '.preview/private-worker/index.js'),
+    serviceBindings: {TEST_VALIDATION: {name: kCurrentWorker, entrypoint: 'ValidationBroker'}},
     modulesRules: [{type: 'Text', include: ['**/*workbench-client.js', '**/*.css', '**/*.svg']}, {type: 'ESModule', include: ['**/*.js'], fallthrough: true}],
     compatibilityDate: '2026-07-30', fetchMock: mock, d1Databases: {DB: 'atlas-runtime-test'},
     bindings: {ACCESS_ISSUER: ISSUER, ACCESS_AUD: 'atlas-test-audience', PRIVATE_ORIGIN: ORIGIN,

@@ -52,6 +52,8 @@ jobs:
         run: python scripts/test_agent.py
       - name: Test semantic knowledge-change boundaries
         run: python scripts/test_agent_changes.py
+      - name: Test isolated private validation and redacted reports
+        run: python scripts/test_private_validation.py
       - name: Build isolated Agent interaction preview
         run: python build.py --agent-demo
       - name: Check Agent preview syntax and interactions

@@ -1,7 +1,9 @@
 import {renderMarkdown} from './markdown.js';
+import {createValidationPanel} from './validation-panel.js';
 
 export function createProposalEditor({get, api, isBusy, onBusy, announce}) {
   const dialog = get('proposal-dialog');
+  const validationPanel = createValidationPanel({get, api});
   let candidate = null, metadata = null, trigger = null, pending = null, working = false;
   const node = (tag, text = '', cls = '') => {const el = document.createElement(tag); el.textContent = text; if (cls) el.className = cls; return el;};
   const errors = {proposal_evidence_required: '请先审阅候选、核对来源，并保存为「已整理」。',
@@ -26,7 +28,7 @@ export function createProposalEditor({get, api, isBusy, onBusy, announce}) {
     onBusy(working);
   }
   const error = e => {get('proposal-error').textContent = errors[e.message] || '操作未完成，请先核对生成结果，避免重复调用。';};
-  function clear() {get('proposal-content').replaceChildren(); get('proposal-export').hidden = true; get('proposal-version').replaceChildren();}
+  function clear() {validationPanel.stop(); get('proposal-content').replaceChildren(); get('proposal-export').hidden = true; get('proposal-version').replaceChildren();}
   async function show(version) {
     const detail = await api('/api/proposals/' + candidate.id + '?version=' + version);
     const {proposal, review, files} = detail;
@@ -53,7 +55,8 @@ export function createProposalEditor({get, api, isBusy, onBusy, announce}) {
       const after = node('details'); after.append(node('summary', '完整修改后文件'));
       after.append(node('pre', file.after_utf8, 'proposal-diff')); content.append(after);
     }
-    content.append(node('p', '已核对精确增补与版本摘要。整仓语义校验、构建、技术/行文审阅及公开范围确认尚未完成；没有分配新 Topic 或修改关系。', 'proposal-limits'));
+    content.append(node('p', '自动检查结果见上方。整仓语义校验与构建不替代技术/行文审阅及公开范围确认；没有分配新 Topic 或修改关系。', 'proposal-limits'));
+    await validationPanel.show(detail);
     get('proposal-generate').textContent = '按当前候选生成新版本';
   }
   async function open(item, source, {prepare = false} = {}) {
@@ -98,6 +101,6 @@ export function createProposalEditor({get, api, isBusy, onBusy, announce}) {
   get('proposal-version').onchange = async () => {if (working) return; working = true; controls(); try {await show(Number(get('proposal-version').value));} catch (e) {error(e);} finally {working = false; controls();}};
   get('proposal-close').onclick = () => {if (!working) dialog.close();};
   dialog.addEventListener('cancel', event => {if (working) event.preventDefault();});
-  dialog.addEventListener('close', () => {if (trigger?.isConnected) trigger.focus(); else get('close-candidates').focus();});
+  dialog.addEventListener('close', () => {validationPanel.stop(); if (trigger?.isConnected) trigger.focus(); else get('close-candidates').focus();});
   return {open};
 }

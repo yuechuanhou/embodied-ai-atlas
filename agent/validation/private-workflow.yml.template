@@ -1,0 +1,48 @@
+# Install only in the dedicated PRIVATE executor repository. No draft in inputs.
+name: Validate private Atlas proposal
+run-name: Atlas validation ${{ inputs.job_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: Opaque private validation task ID
+        required: true
+        type: string
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: atlas-validation-${{ inputs.job_id }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.event.repository.private == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      ATLAS_VALIDATION_JOB: ${{ inputs.job_id }}
+      ATLAS_VALIDATOR_REVISION: __ATLAS_APPROVED_REVISION__
+      ATLAS_VALIDATION_ORIGIN: __ATLAS_GATEWAY_ORIGIN__
+    steps:
+      - name: Run approved private validator
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re, subprocess, sys, tempfile, urllib.request
+          revision = os.environ['ATLAS_VALIDATOR_REVISION']
+          if not re.fullmatch(r'[a-f0-9]{40}', revision):
+              sys.exit('invalid_validator_revision')
+          url = 'https://raw.githubusercontent.com/yuechuanhou/embodied-ai-atlas/' + revision + '/agent/validation/runner.py'
+          try:
+              with urllib.request.urlopen(url, timeout=20) as response:
+                  code = response.read(100001)
+                  if response.geturl() != url or len(code) > 100000:
+                      raise ValueError('invalid source')
+              with tempfile.TemporaryDirectory(prefix='atlas-runner-') as temp:
+                  runner = pathlib.Path(temp) / 'runner.py'
+                  runner.write_bytes(code)
+                  result = subprocess.run([sys.executable, '-I', str(runner)], check=False)
+                  sys.exit(result.returncode)
+          except Exception:
+              sys.exit('validation_bootstrap_failed')
+          PY
