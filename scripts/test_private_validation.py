@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import subprocess
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -107,6 +108,29 @@ class PrivateChecks(unittest.TestCase):
         runner.verify_toolchain(ROOT, lock)
         with self.assertRaises(runner.RunnerError):
             runner.verify_toolchain(ROOT, lock + b'\n# synthetic changed dependencies\n')
+
+    def test_additive_migration_preserves_existing_data_and_keeps_owner_and_binding_guards(self):
+        db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
+        db.execute('PRAGMA foreign_keys=ON')
+        for name in ('0001_initial.sql', '0002_private_runtime.sql'):
+            db.executescript((ROOT / 'agent/db/migrations' / name).read_text())
+        db.execute("INSERT INTO sessions(id,owner_id,created_at,updated_at) VALUES('session','owner',1,1)")
+        db.execute("INSERT INTO messages(id,session_id,sequence,role,body,status,created_at) VALUES('message','session',1,'user','Synthetic preserved message','complete',1)")
+        db.execute("INSERT INTO change_proposals(id,owner_id,status,created_at,updated_at) VALUES('proposal','owner','draft',1,1)")
+        db.execute("INSERT INTO proposal_versions(proposal_id,proposal_version,owner_id,schema_version,patch_digest,base_commit,contract_digest,release_scope,envelope_json,created_at) VALUES('proposal',1,'owner',1,?,?,?,'open_pr','{}',1)", ('a'*64, 'b'*40, 'c'*64))
+        before = db.execute('SELECT * FROM messages').fetchall()
+        db.executescript((ROOT / 'agent/db/migrations/0003_proposal_validation.sql').read_text())
+        self.assertEqual(db.execute('SELECT * FROM messages').fetchall(), before)
+        self.assertEqual(db.execute('SELECT COUNT(*) FROM proposal_versions').fetchone()[0], 1)
+        self.assertEqual(db.execute('SELECT COUNT(*) FROM proposal_validations').fetchone()[0], 0)
+        insert = "INSERT INTO proposal_validations(id,owner_id,proposal_id,proposal_version,patch_digest,base_commit,contract_digest,executor_digest,attempt,status,lease_until,created_at,updated_at) VALUES(?,?,'proposal',1,?,?,?,?,1,'queued',10,1,1)"
+        with self.assertRaises(sqlite3.IntegrityError):
+            db.execute(insert, ('wrong-owner','other','a'*64,'b'*40,'c'*64,'d'*64))
+        db.execute(insert, ('check','owner','a'*64,'b'*40,'c'*64,'d'*64))
+        with self.assertRaises(sqlite3.IntegrityError):
+            db.execute("UPDATE proposal_validations SET base_commit=?", ('f'*40,))
+        self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
 
 
 if __name__ == '__main__':
