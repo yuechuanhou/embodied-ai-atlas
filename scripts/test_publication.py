@@ -56,7 +56,9 @@ class PublicPublicationTests(unittest.TestCase):
 
     def test_exact_public_append_reuses_content_build_and_render_checks(self):
         result = validate_publication(root=self.root, base=self.base, head=self.commit())
-        self.assertEqual(result, {'articles': 26, 'topics': 41})
+        manifest = json.loads((self.root / 'content/manifest.json').read_text())
+        topics = json.loads((self.root / 'content/topics.json').read_text())
+        self.assertEqual(result, {'articles': len(manifest['pages']), 'topics': len(topics['topics'])})
 
     def test_extra_private_fields_or_wrong_contract_are_rejected(self):
         for change in ({'candidate_id': 'private-id'}, {'contract_digest': '0' * 64}, {'after_sha256': '0' * 64}, {'operation': 'delete_article'}):
@@ -66,7 +68,7 @@ class PublicPublicationTests(unittest.TestCase):
                     validate_publication(root=self.root, base=self.base, head=head)
 
     def test_original_content_rewrite_and_extra_file_are_rejected(self):
-        for options in ({'after': self.before.replace('a', 'b', 1) + '\nnew\n'}, {'extra': True}):
+        for options in ({'after': 'Synthetic rewrite\n' + self.before}, {'extra': True}):
             with self.subTest(options=list(options)):
                 with self.assertRaises(ValueError):
                     validate_publication(root=self.root, base=self.base, head=self.commit(**options))
