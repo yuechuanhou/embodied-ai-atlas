@@ -1185,6 +1185,9 @@ html:not([data-reading-mode=research]) .message.assistant>.message-avatar {posit
 .candidate-dialog .dialog-actions a {margin-right:auto}
 .proposal-dialog {width:min(1040px,calc(100vw - 32px));max-width:1040px;max-height:calc(100dvh - 32px);overflow:auto;padding:28px}
 .candidate-organization {padding:12px 14px;background:var(--paper-2);border-radius:9px;margin:14px 0;overflow-wrap:anywhere}
+.sync-feedback {margin:0 8px 10px;color:var(--muted);font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+#refresh[aria-busy=true] svg {animation:knowledge-sync-spin 1s linear infinite;transform-origin:center}
+@keyframes knowledge-sync-spin {to {transform:rotate(360deg)}}
 .candidate-organization>p {margin:0;font-weight:600}.candidate-organization details {margin-top:8px}
 .candidate-organization summary {cursor:pointer;color:var(--accent)}.candidate-organization textarea {width:100%;min-height:160px;font:inherit}
 .proposal-dialog header h2 {margin:0}.proposal-dialog p {overflow-wrap:anywhere;line-height:1.7}

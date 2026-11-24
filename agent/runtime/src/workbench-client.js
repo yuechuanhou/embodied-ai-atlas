@@ -13,6 +13,7 @@ let savingSession = false, renameTarget = null, renameReturn = null, menuTarget 
 let listToken = 0;
 let currentCandidates = [];
 let proposalBusy = false;
+let syncing = false;
 const hints = {authentication_required: '请重新登录私人工作台。', invalid_identity: '登录已失效，请刷新并重新登录。', owner_required: '此工作台仅允许 Owner 使用。',
   knowledge_not_ready: '知识快照尚未就绪，请同步内容后再试。', daily_model_budget_exceeded: '已达到今天配置的模型调用上限。', model_request_incomplete: '模型请求未完成；请先核对结果，避免重复提交。',
   model_output_truncated: '模型输出达到上限，本次回答和草稿未保存。请核对结果；重新发起会再次调用模型。',
@@ -21,10 +22,10 @@ const hints = {authentication_required: '请重新登录私人工作台。', inv
   model_output_incomplete: '模型未正常完成输出，本次未保存回答或草稿。请核对结果后再决定是否重新发起。',
   request_in_progress: '此请求仍在处理中，请稍后核对结果。', request_outcome_unknown: '上次请求已中断，结果和用量可能未能返回；请核对会话，再决定是否重新调用。',
   session_busy: '当前会话仍有请求处理中。', invalid_session_title: '请输入 1–80 个字符的名称，不含换行或控制字符。', service_unavailable: '私人服务暂不可用，请稍后重试。'};
-async function api(path, method = 'GET', body) {
-  const response = await fetch(path, {method, credentials: 'same-origin', headers: method === 'GET' ? {} : {'Content-Type': 'application/json', 'X-Atlas-Request': '1'}, body: body === undefined ? undefined : JSON.stringify(body)});
+async function api(path, method = 'GET', body, signal) {
+  const response = await fetch(path, {method, credentials: 'same-origin', headers: method === 'GET' ? {} : {'Content-Type': 'application/json', 'X-Atlas-Request': '1'}, body: body === undefined ? undefined : JSON.stringify(body), ...(signal ? {signal} : {})});
   if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('authentication_required');
-  const data = await response.json(); if (!response.ok) throw new Error(data.error || 'service_unavailable'); return data;
+  const data = await response.json(); if (!response.ok) throw new Error(data.error || data.error_code || 'service_unavailable'); return data;
 }
 const report = error => {get('error').textContent = hints[error.message] || '操作未完成，请稍后重试。';};
 const handle = fn => async event => {try {await fn(event);} catch (error) {report(error);}};
@@ -106,8 +107,8 @@ function candidates(items) {
     target.append(card);
   }
 }
-async function status() {
-  const {sync, model} = await api('/api/status');
+async function status(signal) {
+  const {sync, model} = await api('/api/status', 'GET', undefined, signal);
   get('status').textContent = (sync.error_code ? '内容核对失败 · 使用最近快照' : sync.stale && sync.index_revision ? '知识快照待核对' : sync.index_revision ? '已载入知识快照' : '尚未同步知识内容') +
     (model.ready ? ' · 模型已配置' : ' · 站内检索模式');
   get('status').title = 'main: ' + sync.repo_head + '\npublished: ' + sync.published_revision + '\nindex: ' + sync.index_revision;
@@ -227,7 +228,35 @@ get('new-attempt').onclick = () => {
   if (get('question').value.trim() && get('question').value.trim() !== retry.message) {get('error').textContent = '输入框中有新的问题，请先保留或清空，再重新发起上次请求。'; return;}
   reading.draft(retry.message, retry.body.reading_context); retry = null; get('form').requestSubmit();
 };
-get('refresh').onclick = handle(async () => {get('refresh').disabled = true; try {await api('/api/sync', 'POST', {}); await status(); announce('知识内容已同步。');} finally {get('refresh').disabled = false;}});
+get('refresh').onclick = async () => {
+  if (syncing) return;
+  const button = get('refresh'), label = get('sync-button-label'), feedback = get('sync-feedback');
+  const show = message => {feedback.hidden = false; feedback.textContent = message; announce(message);};
+  syncing = true; button.disabled = true; button.setAttribute('aria-busy', 'true'); label.textContent = '正在同步…';
+  show('正在核对网站并同步知识内容…');
+  const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 90000);
+  try {
+    const result = await api('/api/sync', 'POST', {}, controller.signal);
+    const summary = result.outcome === 'publishing' ? '网站新版本仍在发布，已保留当前可用内容。' :
+      (result.outcome === 'updated' ? '知识内容已更新' : '内容已是最新') + ' · ' + result.articles + ' 篇文章 · ' + result.topics + ' 个知识点';
+    show(summary);
+    // Refresh derived candidate labels without reloading the conversation,
+    // scrolling the reader or replacing the Owner's next-question draft.
+    try {
+      await status(controller.signal);
+      const id = active;
+      if (id) {const data = await api('/api/sessions/' + id, 'GET', undefined, controller.signal); if (active === id) candidates(data.candidates);}
+    } catch {show(summary + ' 页面状态未完全刷新，可刷新页面核对。');}
+  } catch (error) {
+    const messages = {knowledge_sync_in_progress: '另一个请求正在同步，请稍后再次核对。',
+      knowledge_sync_unconfirmed: '同步结果尚未确认，保留上次知识，可稍后再次核对。',
+      upstream_unavailable: '暂时无法连接知识来源，保留上次知识，请稍后重试。',
+      authentication_required: '登录已失效，请刷新页面并重新登录。'};
+    show(['AbortError', 'TimeoutError'].includes(error.name) ? '同步结果尚未确认，保留上次知识，可稍后再次核对。' :
+      messages[error.message] || '同步未完成，保留上次知识，请稍后重试。');
+    try {if (!controller.signal.aborted) await status(controller.signal);} catch {}
+  } finally {clearTimeout(timeout); syncing = false; button.disabled = false; button.setAttribute('aria-busy', 'false'); label.textContent = '同步知识内容';}
+};
 get('export').onclick = handle(async () => {
   if (!active) return; const data = await api('/api/sessions/' + active + '/export');
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'})), link = node('a');
