@@ -1213,4 +1213,9 @@ html:not([data-reading-mode=research]) .message.assistant>.message-avatar {posit
     scroll-behavior:auto!important
   }
 }
+
+.publication-confirm {display:flex;gap:10px;align-items:flex-start;margin:18px 0;line-height:1.7}
+.publication-confirm input {width:18px;height:18px;flex:0 0 18px;margin-top:5px;accent-color:var(--accent)}
+.publication-disclosure {padding:14px 16px;border-left:3px solid var(--accent);background:var(--paper-2)}
+.publication-status {font-weight:600}
 `;

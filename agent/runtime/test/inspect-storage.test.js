@@ -117,7 +117,7 @@ test('main rules require PR, current CI from GitHub Actions and forbid bypass, d
   assert.equal(byType.pull_request.parameters.required_review_thread_resolution, true);
   const checks = byType.required_status_checks.parameters;
   assert.equal(checks.strict_required_status_checks_policy, true);
-  assert.deepEqual(checks.required_status_checks, [{context: 'check', integration_id: 15368}, {context: 'Validate private runtime from a clean checkout', integration_id: 15368}]);
+  assert.deepEqual(checks.required_status_checks, [{context: 'check', integration_id: 15368}, {context: 'Validate private runtime from a clean checkout', integration_id: 15368}, {context: 'Validate Orbit knowledge change', integration_id: 15368}]);
   const workflow = await readFile(new URL('../../../.github/workflows/check.yml', import.meta.url), 'utf8');
   assert.match(workflow, /\n  check:\n/); assert.match(workflow, /name: Validate private runtime from a clean checkout/);
 });

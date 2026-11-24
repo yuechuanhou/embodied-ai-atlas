@@ -7,6 +7,61 @@ import {renderMarkdown} from '../src/markdown.js';
 import {candidateView} from '../src/session-view.js';
 import {readerURL, readingContext} from '../src/reading-view.js';
 import {validationFixture} from './validation-helpers.js';
+import {publicationFixture} from './publication-helpers.js';
+
+test('public review requires an explicit unchecked confirmation, creates one PR and restores exact CI without rebilling', async t => {
+  const h = await publicationFixture(t);
+  let release, sends = 0; const gate = new Promise(resolve => {release = resolve;});
+  const ui = await open(t, h, async (path, init) => {if (path.endsWith('/publication') && init.method === 'POST') {sends++; await gate;}}), d = ui.d;
+  d.getElementById('question').value = 'Keep my next private learning question';
+  d.querySelector('[data-proposal-candidate]').click();
+  await until(() => !d.getElementById('proposal-close').disabled && d.querySelector('.publication-confirm input'));
+  assert.equal(h.world.publication.writes.length, 0);
+  const checkbox = d.querySelector('.publication-confirm input'), create = [...d.querySelectorAll('.publication-review button')].find(x => x.textContent.includes('创建 PR'));
+  assert.equal(checkbox.checked, false); assert.equal(create.disabled, true);
+  assert(d.querySelector('.publication-disclosure').textContent.includes('CI 失败'));
+  checkbox.click(); assert.equal(create.disabled, false); create.click(); create.click();
+  await until(() => sends === 1);
+  assert.equal(d.getElementById('proposal-close').disabled, true); assert.equal(d.getElementById('proposal-version').disabled, true);
+  release();
+  await until(() => d.querySelector('.publication-status')?.textContent.includes('CI 检查中'));
+  assert.equal(h.world.publication.writes.length, 3); assert.equal(sends, 1);
+  d.getElementById('proposal-close').click();
+  const restored = await open(t, h); restored.d.querySelector('[data-proposal-candidate]').click();
+  await until(() => restored.d.querySelector('.publication-status')?.textContent.includes('CI 检查中'));
+  h.world.publication.checks = 'success';
+  [...restored.d.querySelectorAll('.publication-review button')].find(x => x.textContent.includes('核对任务')).click();
+  await until(() => restored.d.querySelector('.publication-status')?.textContent.includes('检查通过'));
+  assert(restored.d.querySelector('.publication-review a').href.endsWith('/pull/41'));
+  assert(![...restored.d.querySelectorAll('.publication-review button')].some(x => x.textContent.includes('合并')));
+  assert.equal(h.world.modelCalls.length, 1); assert.equal(h.world.publication.writes.length, 3);
+  assert.equal(d.getElementById('question').value, 'Keep my next private learning question');
+  assert.deepEqual(ui.errors, []); assert.deepEqual(restored.errors, []);
+});
+
+test('a lost public-submit response keeps creation disabled until the exact saved task is reconciled', async t => {
+  const h = await publicationFixture(t), ui = await open(t, h, async (path, init) => {
+    if (path.endsWith('/publication') && init.method === 'POST') {await h.start(JSON.parse(init.body)); throw Error('Synthetic lost response');}
+  }), d = ui.d;
+  d.querySelector('[data-proposal-candidate]').click();
+  await until(() => d.querySelector('.publication-confirm input') && !d.getElementById('proposal-close').disabled);
+  d.querySelector('.publication-confirm input').click();
+  [...d.querySelectorAll('.publication-review button')].find(x => x.textContent.includes('创建 PR')).click();
+  await until(() => d.querySelector('.publication-status')?.textContent.includes('结果待核对'));
+  assert(![...d.querySelectorAll('.publication-review button')].some(x => x.textContent.includes('创建 PR')));
+  [...d.querySelectorAll('.publication-review button')].find(x => x.textContent.includes('核对任务')).click();
+  await until(() => d.querySelector('.publication-status')?.textContent.includes('CI 检查中'));
+  assert.equal(h.world.publication.writes.length, 3); assert.equal(h.world.modelCalls.length, 1); assert.deepEqual(ui.errors, []);
+});
+
+test('unconfigured publication exposes a private preview but no enabled public-create action', async t => {
+  const h = await publicationFixture(t, {PUBLICATION_CONFIG: JSON.stringify({enabled: false})}), ui = await open(t, h), d = ui.d;
+  d.querySelector('[data-proposal-candidate]').click();
+  await until(() => d.querySelector('.publication-status')?.textContent.includes('尚未接入'));
+  assert(!d.querySelector('.publication-confirm input'));
+  assert(![...d.querySelectorAll('.publication-review button')].some(x => x.textContent.includes('创建 PR')));
+  assert.equal(h.world.publication.writes.length, 0); assert.equal(h.world.modelCalls.length, 1); assert.deepEqual(ui.errors, []);
+});
 
 test('private validation displays progress, restores after reopening and shows verified results without another model call', async t => {
   const h = await validationFixture(t), ui = await open(t, h), d = ui.d;

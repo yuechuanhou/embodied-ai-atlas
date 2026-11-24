@@ -37,3 +37,6 @@ runs:
     - name: Test the private validation runner with synthetic proposals
       shell: bash
       run: python scripts/test_private_validation.py
+    - name: Test public publication gates with synthetic Git commits
+      shell: bash
+      run: python scripts/test_publication.py

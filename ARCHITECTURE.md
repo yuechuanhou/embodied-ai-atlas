@@ -144,7 +144,7 @@ Models propose changes; trusted services validate them and execute only an Owner
 exact approved version. Public PRs require confirmation before creation.
 
 The extension supplies proposal contracts, an Owner-only deployed Worker/D1 runtime,
-and versioned migrations. The GitHub publication pipeline remains unimplemented. Normal builds emit a content-addressed
+and versioned migrations. A single-repository public-PR controller is implemented behind disabled-by-default identity configuration; production onboarding and functional acceptance remain pending, and merge/deployment is not exposed by this controller. Normal builds emit a content-addressed
 knowledge snapshot for trusted synchronization; this is derived data, not another
 editable knowledge source. The verified private entry is public URL metadata in
 `manifest.site.private_agent_origin`, overridable with `ATLAS_AGENT_ORIGIN`.

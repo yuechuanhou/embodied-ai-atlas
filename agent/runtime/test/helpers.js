@@ -34,6 +34,7 @@ export async function harness(bindings = {}, configureMock = null) {
   mock.get(ISSUER).intercept({method: 'GET', path: '/cdn-cgi/access/certs'}).reply(200, JSON.stringify({keys: [jwk]})).persist();
   mock.get('https://api.github.com').intercept({method: 'GET', path: /^\/repos\/yuechuanhou\/embodied-ai-atlas\//}).reply(options => {
     if (world.failed) return {statusCode: 503, data: '{}'};
+    const configured = world.githubRead?.(options); if (configured) return configured;
     if (options.path.includes('/branches/main')) return {statusCode: 200, data: JSON.stringify({commit: {sha: world.main}})};
     if (options.path.includes('/jobs?')) return {statusCode: 200, data: JSON.stringify({jobs: [{name: 'deploy', conclusion: world.deployment}]})};
     return {statusCode: 200, data: JSON.stringify({workflow_runs: [{id: 123, head_sha: world.snapshot.revision, head_branch: 'main', path: '.github/workflows/deploy-pages.yml', event: 'push', conclusion: 'success'}]})};
