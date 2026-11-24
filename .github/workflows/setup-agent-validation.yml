@@ -1,0 +1,47 @@
+name: Set up private Atlas validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Read-only plan or apply migration 0003 and create a closed gateway
+        type: choice
+        options: [plan, prepare]
+        default: plan
+      confirmation:
+        description: For prepare, enter atlas-agent-private:0003+atlas-validation-gateway
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+# Share the Worker setup lock: no simultaneous code update or gateway preparation.
+concurrency:
+  group: atlas-agent-worker-setup
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    if: github.repository == 'yuechuanhou/embodied-ai-atlas' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: atlas-agent-bootstrap
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate exact source and setup boundaries without cloud credentials
+        uses: ./.github/actions/validate-private-runtime
+      - name: Verify the closed gateway deployment bundle
+        run: node agent/runtime/scripts/setup-validation.js --dry-run
+      - name: Plan or prepare fixed validation infrastructure
+        env:
+          ATLAS_VALIDATION_SETUP_MODE: ${{ inputs.mode }}
+          ATLAS_VALIDATION_SETUP_CONFIRMATION: ${{ inputs.confirmation }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_WORKER_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_API_TOKEN }}
+          ATLAS_D1_DATABASE_ID: ${{ secrets.ATLAS_D1_DATABASE_ID }}
+        run: node agent/runtime/scripts/setup-validation.js

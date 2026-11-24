@@ -43,6 +43,17 @@ OIDC 证明执行身份，不是 Owner 的公开授权。任务结果绑定 `pro
 
 私有执行器若不具备免费套餐的分支保护能力，仍必须保持唯一 Owner 写权限；服务端 SHA allowlist 会拒绝未经接入更新的工作流，不能为了执行方便取消校验。更新工作流需重新核对 SHA/配置，旧结果不会自动沿用。
 
+### 一次性数据库与关闭网关接入
+
+`Set up private Atlas validation` 是上述第 4 步的受保护接入工具，和逐次提案执行器分开。它仅接受 `main` 上的手动运行，沿用 `atlas-agent-bootstrap` Environment、现有 D1/Worker 两个 API Token 及数据库 ID；在注入凭据前跑完整合成回归和关闭网关的打包检查。
+
+- 先运行 `mode=plan`，confirmation 留空。仅查询固定数据库身份、迁移记录、schema、外键、quick_check、当前 Time Travel bookmark 和两个 Worker 的元数据。结果不含用户行、数据库 UUID、Token 或 bookmark 原文。
+- 核对 plan 后，运行 `mode=prepare`，confirmation 填 `atlas-agent-private:0003+atlas-validation-gateway`。它只接受哈希固定的 0001–0003 三份迁移；生产库必须已完整应用前两份，或完整应用三份。仅补 0003，然后创建 `atlas-validation-gateway`，关闭 workers.dev、预览、日志和定时任务。它只有指向 `ValidationBroker` 的 service binding，没有数据库、模型或 GitHub 凭据。
+- 每次写入前先核对数据库与健康状态、读取恢复 bookmark，并输出安全的检查时间。已有 gateway 不覆盖；迁移已成功但创建网关前中断时，可先重新 plan 核对，再明确决定 prepare。任何不确定写入都停止，不自动重试、回滚或恢复生产库。两个资源的创建不构成跨服务原子事务。
+- 本工具不创建数据库、不重置聊天、不调整工作台 Access、不写入 `VALIDATION_CONFIG`，也不启用机器 URL。完整接入还需要私有执行器仓库、最小权限 GitHub App、Worker Secrets，以及 Owner 确认后的网关启用和真实提案验收。准备完成不等于执行器已可用。
+
+数据库迁移使用官方 Wrangler migration 记录；执行时保持原有生产库 ID。迁移进程仅接收 D1 Token，网关进程仅接收 Worker Token，临时配置及日志执行结束后删除。工作流不上传生产导出、查询结果或部署日志 artifact。操作前的 Time Travel 可用性检查不等于已执行恢复，也不替代独立备份。
+
 ## 费用、等待与失败恢复
 
 - 沿用 GitHub 免费额度与 Cloudflare Free；没有升级套餐的程序。接入时核对账户共享额度并配置 GitHub 超额停止。次数限制不等于账户账单上限，不承诺无限免费。
