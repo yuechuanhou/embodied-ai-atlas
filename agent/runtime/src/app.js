@@ -7,10 +7,12 @@ import {candidateView, sessionPinned, sessionTitle, validatedSessionPatch} from 
 import {candidateDetail, candidateFor, exportCandidate, saveCandidate} from './candidate-review.js';
 import {proposalRoute} from './proposal-preparation.js';
 import {createProposalValidation} from './proposal-validation.js';
+import {createPublication} from './publication.js';
 
 export function createApplication({fetchImpl = fetch, renderWorkbench = null} = {}) {
   const authenticate = createAuthenticator(fetchImpl), synchronize = createKnowledgeSync(fetchImpl);
   const validation = createProposalValidation({fetchImpl, synchronize});
+  const publication = createPublication({fetchImpl, synchronize});
   const sessionFor = async (db, id, owner) => {
     const session = await db.prepare('SELECT * FROM sessions WHERE id=? AND owner_id=?').bind(id, owner).first();
     requireValue(session, 404, 'session_not_found'); return session;
@@ -53,6 +55,8 @@ export function createApplication({fetchImpl = fetch, renderWorkbench = null} = 
           articles: snapshot.articles.length, topics: snapshot.topics.length});
       }
       if (pathname.startsWith('/api/proposals/') || /^\/api\/candidates\/[a-f0-9-]{36}\/proposals$/.test(pathname)) {
+        const publicationResponse = await publication.route({request, env, owner, pathname, searchParams});
+        if (publicationResponse) return publicationResponse;
         const validationRoute = pathname.match(/^\/api\/proposals\/([a-f0-9-]{36})\/validation$/);
         if (validationRoute && method === 'GET') {
           const version = Number(searchParams.get('version'));
@@ -65,7 +69,8 @@ export function createApplication({fetchImpl = fetch, renderWorkbench = null} = 
             (!body.retry_of || typeof body.retry_of === 'string' && /^[a-f0-9-]{36}$/.test(body.retry_of)), 400, 'invalid_validation_request');
           return json(await validation.start(env, owner, validationRoute[1], body.version, body.retry_of || null));
         }
-        const response = await proposalRoute({request, env, owner, pathname, searchParams, synchronize, fetchImpl, validation});
+        const response = await proposalRoute({request, env, owner, pathname, searchParams, synchronize, fetchImpl,
+          validation: env.PUBLICATION_CONFIG ? null : validation});
         if (response) return response;
       }
       const candidateRoute = pathname.match(/^\/api\/candidates\/([a-f0-9-]{36})(\/export)?$/);

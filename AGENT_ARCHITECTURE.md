@@ -1,6 +1,6 @@
 # Atlas Personal Agent — Architecture v0.1
 
-状态：私人 Worker/D1、Owner Access、Claude 问答、私人候选和 Orbit 三种阅读模式已部署；Owner 已确认问答、候选及刷新恢复。GitHub 写入与正式发布链路尚未实现。最新功能边界和上线证据见 [AGENT_ROADMAP.md](AGENT_ROADMAP.md)。本文是架构基线，不是某次开发分支的部署记录。
+状态：私人 Worker/D1、Owner Access、Claude 问答、私人候选和 Orbit 三种阅读模式已部署；Owner 已确认问答、候选及刷新恢复。单仓库公开 PR 控制器已提供代码，写入身份与线上验收待接入；合并发布接口仍待实现。最新功能边界和上线证据见 [AGENT_ROADMAP.md](AGENT_ROADMAP.md)。本文是架构基线，不是某次开发分支的部署记录。
 
 ## 1. 目标与边界
 
@@ -98,9 +98,9 @@ Owner 邮箱/subject、Access audience、GitHub App 密钥和模型密钥全部�
 
 任何 base/规则/正文/归属/关系/公开范围变化，都创建新版本并使旧批准不能继续执行。首期不自动重用批准做 rebase；无冲突也须重新校验并确认新基线。此保守规则减少并发歧义，可在有证据后优化。
 
-`open_pr` 只授权创建 PR；`merge_and_deploy` 是未来一次确认完成发布的目标范围，须同时满足真实 GitHub 保护规则和 CI。当前开发不启用自动合并。rulesets 查询为空不能证明不存在传统分支保护；后者此前查询受集成权限限制，仍待验证。
+`open_pr` 只授权创建 PR；`merge_and_deploy` 是未来一次确认完成发布的目标范围，须同时满足真实 GitHub 保护规则和 CI。当前开发不启用自动合并。单仓库路线将完整 Python 校验放到确认公开后的现有 PR CI；公开前必须在私人界面核对准确正文、技术/行文及公开范围。公开分支/提交一经创建即可被访问，不将未合并等同于未公开。GitHub 执行器仅接收允许公开的文章投影，私人 envelope、来源和会话保持 D1 私有。详见 `agent/runtime/PUBLICATION.md`。rulesets 查询为空不能证明不存在传统分支保护；后者此前查询受集成权限限制，仍待验证。
 
-普通入库允许内容 Markdown 与必要元数据，禁止前端、工作流、Secrets、仓库设置和分类定义的修改。路径白名单只是一层检查；实际执行前必须比较解析后的语义，确保只添加合法引用、维持单一归属和历史身份。`agent/change_validation.py` 已提供本地参考检查：核对 before-image、比较元数据语义、隔离构建并拒绝可执行 HTML。当前 helpers 不含鉴权、技术事实审核或发布控制，尚不是完整发布安全边界。
+普通入库允许内容 Markdown 与必要元数据，禁止前端、工作流、Secrets、仓库设置和分类定义的修改。路径白名单只是一层检查；实际执行前必须比较解析后的语义，确保只添加合法引用、维持单一归属和历史身份。`agent/change_validation.py` 已提供本地参考检查：核对 before-image、比较元数据语义、隔离构建并拒绝可执行 HTML。这些 helpers 本身不含鉴权或技术事实审核。Owner API 与单仓库 PR 控制器独立处理准确版本的确认和受限 GitHub 写入；账号配置及真实生产验收尚未完成，不能据代码测试宣称已可上线入库。
 
 删除文件、移除既有身份/关系、合并、拆分、退役或迁移走变更规范中的独立流程；当前 v1 不支持时转手工 PR，不以 after-image 或 intents 绕过边界。正文删除和更正也必须显示其语义影响。私人会话删除、公开知识撤下、备份清理与 Git 历史重写是不同范围，不能共用一个模糊的“删除”批准。
 

@@ -28,7 +28,7 @@ async function verifiedContext(snapshot) {
   return files;
 }
 
-function checkAddition(markdown) {
+export function checkAddition(markdown) {
   requireValue(text(markdown, 12000), 502, 'invalid_proposal_output');
   const tokens = marked.lexer(markdown);
   marked.walkTokens(tokens, token => {

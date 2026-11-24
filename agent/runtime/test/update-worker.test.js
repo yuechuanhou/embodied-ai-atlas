@@ -15,7 +15,7 @@ function harness({failure = 0, database = {}, change = {}, driftBefore = false, 
     {name: 'MODEL_NAME', type: 'plain_text', text: 'claude-sonnet-5-5'},
     {name: 'DAILY_CALL_LIMIT', type: 'plain_text', text: '10'},
     {name: 'DAILY_TOKEN_LIMIT', type: 'plain_text', text: '100000'},
-    ...['OWNER_EMAIL', 'ACCESS_ISSUER', 'ACCESS_AUD', 'PRIVATE_ORIGIN', 'MODEL_API_KEY', 'GITHUB_READ_TOKEN'].map(name => ({name, type: 'secret_text'}))];
+    ...['OWNER_EMAIL', 'ACCESS_ISSUER', 'ACCESS_AUD', 'PRIVATE_ORIGIN', 'MODEL_API_KEY', 'GITHUB_READ_TOKEN', 'PUBLICATION_CONFIG', 'PUBLICATION_APP_PRIVATE_KEY'].map(name => ({name, type: 'secret_text'}))];
   const fetchImpl = async (url, init) => {
     calls.push({url, init});
     assert.equal(init.redirect, 'error'); assert.equal(init.headers.Authorization, 'Bearer synthetic-worker-token');
@@ -57,6 +57,8 @@ test('code upload keeps binding types rather than reading or rewriting Secret va
   const form = h.uploads[0], metadata = JSON.parse(form.get('metadata'));
   assert.deepEqual(metadata.keep_bindings, ['secret_text', 'plain_text', 'd1']);
   assert.equal(metadata.bindings, undefined); assert.equal(metadata.vars, undefined);
+  assert(!JSON.stringify(metadata).includes('PUBLICATION_APP_PRIVATE_KEY'));
+  assert(!h.calls.some(c => /\/secrets/.test(c.url)));
   assert.equal(metadata.main_module, 'index.js'); assert.equal(metadata.observability.enabled, false);
   assert.equal(form.get('index.js').type, 'application/javascript+module');
   assert.equal([...form.keys()].length, 5);

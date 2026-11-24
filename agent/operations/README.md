@@ -131,3 +131,7 @@ Time Travel 的 restore 会原地覆盖目标库，取消进行中的查询。�
 本轮新增的是运行准备、只读检查和可审阅规则；没有修改技术文章、知识身份、运行时问答、数据库迁移、Access、DNS、账单或发布权限。合并后不需要为这些文件重新上传私人 Worker，新的手动检查 workflow 才会进入 main。
 
 按照上述证据逐项完成第一阶段后，再进入私人「标准提案与完整差异」：读取最新行文/操作规范，去重与已有文章优先，记录证据、选择叙事、安排 Topic/关系/视图和精确 after-image，校验和构建后交 Owner 看具体差异。仍不创建公开 PR 或授予模型 GitHub 写入权限。
+
+### 单仓库知识 PR 的新增必需检查（接入待办）
+
+单仓库发布控制器接入前，在既有 main Ruleset 中增加 `Validate Orbit knowledge change`，Expected source 仍为 GitHub Actions（15368），保留原有两项。`main-ruleset.json` 是更新后的完整模板，远端规则仍须 Owner 明确保存并核对。普通工程 PR 跳过此知识专属 job；Orbit 的知识 PR 必须真实运行成功，不能把 skipped 当作通过。配置模板和控制器代码均不授予修改仓库设置的权限。

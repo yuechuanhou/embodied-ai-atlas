@@ -117,7 +117,19 @@ def validate_change_set(proposal, *, root, current_head, progress=None):
     validate_proposal(proposal)
     require(proposal['base_commit'] == current_head, 'Repository changed; reconfirm')
     require(proposal['contract_digest'] == contract_digest(root), 'Contract changed; reconfirm')
-    changes = {item['path']: item for item in proposal['file_changes']}
+    return validate_content_changes(proposal['file_changes'], root=root, progress=notify)
+
+
+def validate_content_changes(file_changes, *, root, progress=None):
+    """Shared structural/build checks for private envelopes and approved public diffs.
+
+    Caller separately verifies identity/approval or public commit/base bindings.
+    This function makes no claim about evidence, disclosure or authorization.
+    """
+    root = Path(root).resolve()
+    notify = progress or (lambda stage, status: None)
+    changes = {item['path']: item for item in file_changes}
+    require(len(changes) == len(file_changes), 'Duplicate content path')
     for name, item in changes.items():
         path = root / name
         require(path.resolve().parent == (root / 'content').resolve() and not path.is_symlink(), 'Path escapes canonical content')

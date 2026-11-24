@@ -10,7 +10,7 @@ class UpdateError extends Error {}
 const requireValue = (value, code) => {if (!value) throw new UpdateError(code);};
 const preserved = ['compatibility_date', 'compatibility_flags', 'limits', 'usage_model', 'logpush',
   'observability', 'tail_consumers', 'tags', 'placement'];
-const secretNames = ['OWNER_EMAIL', 'ACCESS_ISSUER', 'ACCESS_AUD', 'PRIVATE_ORIGIN', 'GITHUB_READ_TOKEN', 'MODEL_API_KEY', 'VALIDATION_CONFIG', 'VALIDATION_APP_PRIVATE_KEY'];
+const secretNames = ['OWNER_EMAIL', 'ACCESS_ISSUER', 'ACCESS_AUD', 'PRIVATE_ORIGIN', 'GITHUB_READ_TOKEN', 'MODEL_API_KEY', 'VALIDATION_CONFIG', 'VALIDATION_APP_PRIVATE_KEY', 'PUBLICATION_CONFIG', 'PUBLICATION_APP_PRIVATE_KEY'];
 const variableNames = ['MODEL_PROVIDER', 'MODEL_NAME', 'DAILY_CALL_LIMIT', 'DAILY_TOKEN_LIMIT'];
 
 function stable(value) {
