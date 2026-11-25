@@ -1,40 +1,25 @@
 # Atlas 运行验收与恢复
 
-本轮落实 2026-11-23 审计的第一步。这里记录当前证据、Owner 实机验收、main 保护和恢复演练；不授予 Orbit 发布权限。准备完成、代码合并、配置生效、演练通过是四种不同状态。
+这里维护可重复的运行检查、部署依据和恢复方法。代码合并、Worker 更新、账号配置生效和真实入库验收分别判断；不为每次人工测试另建记录 PR。
 
-## 1. 真实状态与通过条件
+## 1. 当前基线与尚待接入项
 
-目前已核对的生产基线是 PR #19 合并提交 `61b6d1f8f3ea88e9ddaab9cd7a85b61949bf19de`：
+2026-11-24 已核对的生产基线为 PR #25 合并提交 `9240abe56e046555c3c616a85ce93b231dbc9f4b`：
 
-- [Pages 45157393854](https://github.com/yuechuanhou/embodied-ai-atlas/actions/runs/45157393854) 成功；线上知识 manifest 与该提交相同，索引 hash 验证通过。
-- [Worker 45157833544](https://github.com/yuechuanhou/embodied-ai-atlas/actions/runs/45157833544) 成功，83 项运行时测试通过；上传结果保留 `private_functional_acceptance: pending_owner_check`。
-- 已包括三模式、rename/pin/delete/export、私人候选审阅和 PR #19 治理规范。正式知识提案生成与 GitHub 发布仍未上线。
+- [Pages 45503747826](https://github.com/yuechuanhou/embodied-ai-atlas/actions/runs/45503747826) 成功，公开 manifest/index revision 和摘要一致，26 篇文章、41 个派生 Topic。
+- [Worker 45504019837](https://github.com/yuechuanhou/embodied-ai-atlas/actions/runs/45504019837) 返回相同 source revision，`mutations=true`、`worker_code_updated_configuration_verified`；上传检查保留 bindings、模型、入口和 schedules。
+- PR #25 的 [CI 45405771080](https://github.com/yuechuanhou/embodied-ai-atlas/actions/runs/45405771080) 两项通用检查成功。知识专属 job 在此工程分支按设计 skipped，不能当成真实知识 PR 已通过的证据。
+- 私人学习、候选审阅、会话管理和三模式已部署。Owner 已确认电脑和手机基本功能，以及隔离 SQL 恢复与内容抽查通过；这不等于自动化云端恢复测试已实现，也不代表新版公开 PR 已验收。
 
-以下证据未收到前保持待完成，不因本文合并自动打勾：
+| 接入门槛 | 判断方式 |
+| --- | --- |
+| main 保护 | 远端 Active、main 目标、空 bypass、准确三项必需检查；模板不会自动应用 |
+| 公开基线 | `inspect-publication.js` 只读核对 main、公开 manifest/index 与正文摘要；不验证 Worker 或发布身份 |
+| 当前 D1 | `inspect-storage.js` 只读核对实际迁移/必要对象、外键、quick_check 和当前书签；当前主线不要求历史可选私有执行器迁移 |
+| GitHub 发布身份 | 尚待按 [接入指南](../runtime/PUBLICATION_SETUP.md) 安装和配置；代码部署不等于权限已接入 |
+| 真实知识入库 | 尚待准确公开确认、真实 PR/CI、独立合并确认、Pages 与 Orbit 检索核对 |
 
-| 检查 | 当前状态 | 完成证据 |
-| --- | --- | --- |
-| 当前三模式及候选审阅的电脑验收 | 待 Owner | 下节 A1–A5 的准确版本、日期、设备和结果 |
-| 手机实际体验 | 待 Owner | M1；记录浏览器、键盘、滚动和布局问题 |
-| main 保护 | 待生效 | GitHub 规则为 Active，目标和必需检查准确，核对无 bypass |
-| D1 元数据/完整性/书签 | 只读检查入口已准备，待合并后运行 | `Inspect private Atlas storage` 成功且无写入 |
-| 实际恢复窗口 | Owner 于 2026-11-23 确认 Workers Free；production 后端待核实 | production 后端核实后适用 7 天 Time Travel；不收集付款信息 |
-| 隔离恢复 | 待单独执行 | 私密保存的源/目标核对、导出校验、恢复比较与演练记录 |
-
-记录结果时使用下面的最小格式。公开仓库只记录通过/失败及脱敏问题，不放会话 ID、聊天、候选、邮箱、UUID、bookmark、备份地址或截图。
-
-```text
-检查时间：YYYY-MM-DD，America/Los_Angeles
-已部署 Pages / Worker revision：<实际值，不能只填本地 HEAD>
-设备 / 浏览器：
-A1–A5、M1、权限入口：逐项 passed / failed / pending
-main 保护：规则链接、核对日期、目标、checks、bypass 核对结果
-存储检查：运行链接及状态
-恢复窗口：已核实套餐及天数，或 pending
-隔离恢复：passed / failed / pending；仅记脱敏结论
-```
-
-未来发布写权限接入前，这些门槛必须完成。私人提案的设计/准备可以并行进行；不能把待完成检查作为已通过的发布依据。
+真实检查失败保持失败/待核实；不自动迁移或降低门禁。公开输出仅含脱敏状态，不放私人正文、会话/候选 ID、账号 UUID、bookmark 或备份地址。Free 的 7 天恢复规划沿用 Owner 已确认套餐，定时清理尚未启用。
 
 ## 2. 一次小范围实机验收
 
@@ -53,7 +38,7 @@ main 保护：规则链接、核对日期、目标、checks、bypass 核对结�
 
 ## 3. main 分支保护：个人仓库配置
 
-[main-ruleset.json](main-ruleset.json) 是**待应用的配置**，放进仓库本身不会创建 GitHub 规则。当前连接不含 Administration 写权限；本轮浏览器也没有 GitHub 登录会话，因而未将它记作生效。无需为日常代码连接增加管理权限，可以由 Owner 在已登录 GitHub 中设置。
+[main-ruleset.json](main-ruleset.json) 是期望配置，放进仓库本身不会创建 GitHub 规则。实际已存在 main Ruleset；升级时只补缺项并保留其他现有设置，不重复创建规则或用旧模板覆盖新增参数。当前连接不含 Administration 写权限，由 Owner 在已登录 GitHub 中保存，再只读复核。
 
 仓库 Settings → Rules → Rulesets，创建 Branch ruleset，按下表填写；也可使用 GitHub 的 JSON import 功能导入本文件，并逐项核对。先检查已有规则，避免重复建立矛盾规则。
 
@@ -69,13 +54,13 @@ main 保护：规则链接、核对日期、目标、checks、bypass 核对结�
 | Required approvals | **0**；当前单 Owner 仍可审阅并主动合并，不依赖无法完成的自我 approval |
 | Code Owner / last-push approval | 关闭；后续多人或新 App 接入时另行设计 |
 | Require conversation resolution | 开启 |
-| Required status checks | `check` 与 `Validate private runtime from a clean checkout` |
-| Expected source | 两项均选择 GitHub Actions；实际 app/integration ID 为 `15368` |
+| Required status checks | `check`、`Validate private runtime from a clean checkout`、`Validate Orbit knowledge change` |
+| Expected source | 三项均选择 GitHub Actions；实际 app/integration ID 为 `15368` |
 | Require branches up to date | 开启 |
 | Require successful deployment before merge | 不设；当前 Pages/Worker 在合并后部署，不能制造循环依赖 |
 | Restrict updates / linear history / merge queue | 本轮不启用，保留现有合并方式 |
 
-两项名称取自 PR #19 最终提交实际 check-runs，而不是工作流标题或只在 main 上运行的 `deploy` / `update`。如果 GitHub 不提供对应候选，先核对近期 PR 的检查记录，不选择错误同名检查，也不关闭门禁来迁就。
+检查名称必须对应现有 `check.yml` 的 job，而不是工作流标题或只在 main 上运行的 `deploy` / `update`。普通工程 PR 跳过知识专属 job；Orbit 知识 PR 必须实际运行并成功，不能把 skipped 当作验收通过。如果 GitHub 不提供对应候选，先核对近期 PR 的检查记录，不选择错误同名检查，也不关闭门禁来迁就。
 
 生效后通过只读 API/规则页面复核 Active、main 目标、空 bypass 和准确 checks；下一次正常 PR 应显示这些检查为 Required。不要通过强推或删 main 来“验证”。仓库管理员仍可编辑规则本身，这不是管理员不可绕过的组织权限隔离。
 
@@ -87,13 +72,15 @@ main 保护：规则链接、核对日期、目标、checks、bypass 核对结�
 
 经 Owner 审阅合并本轮后，在 Actions 运行 **Inspect private Atlas storage**，Branch=`main`，批准既有 `atlas-agent-bootstrap` Environment；没有 apply/deploy/restore 模式和 SQL 输入。
 
-它使用该 Environment 已有的 `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_API_TOKEN`（原 D1 凭据）与 `ATLAS_D1_DATABASE_ID`，不使用模型或 Worker 上传 token。仅执行：
+它使用该 Environment 已有的 `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_API_TOKEN`（原 D1 凭据）与 `ATLAS_D1_DATABASE_ID`，不使用模型或 Worker 上传 token。先不带任何凭据运行 `inspect-publication.js`：只读远端 main 生效规则，确认三项检查来源/strict 设置和 PR/删除/强推保护，再核对 main 与公开 manifest/index、文章摘要及读取前后版本一致。bypass、Worker 版本和 App 身份不在此公共检查范围；它也不代替部署 job 和真实入库验收。此脚本可单独用 `node agent/runtime/scripts/inspect-publication.js` 运行。
+
+随后存储检查仅执行：
 
 1. GET 固定 UUID 的 D1 信息，核对名称及 `version=production`。
-2. 四条固定只读 SQL：必要表/不可变触发器存在、migration 文件名完全一致、外键检查、quick_check。
+2. 四条固定只读 SQL：必要表/不可变触发器、实际迁移历史、外键检查、quick_check。所有跟踪迁移默认必需，仅历史未接入的 `0003_proposal_validation.sql` 可选。可选迁移已记录则验证其对象；未记录却残留对应对象、缺失必需项、重复或未知记录都停止。
 3. GET 当前 Time Travel bookmark，只在内部检查存在性。
 
-输出只有固定名称、通过状态和 migration 数量；不输出 UUID、token、bookmark、表内容、问题、候选或备份文件。失败只输出固定错误码，不打印上游响应正文；不会自动重试、迁移、修复、删除或创建资源。只读检查会占用少量数据库执行时间，应避开学习请求繁忙时运行。
+存储输出只有固定名称、通过状态、migration 数量及可选 schema 是否存在；公共基线另输出公开 revision/数量，不输出正文。不输出 UUID、token、bookmark、表内容、问题、候选或备份文件。失败只输出固定错误码，不打印上游响应正文；不会自动重试、迁移、修复、删除或创建资源。只读检查会占用少量数据库执行时间，应避开学习请求繁忙时运行。
 
 凭据过期/权限不足时停止，先由 Owner 检查原凭据；无需扩大到 Workers、Access 或 Billing。将来若要轮换，可评估目标账号的 D1 Read 权限，轮换是独立凭据操作，不能把脚本固定 UUID 说成平台已强制单库权限。工作流复用原存储操作的 concurrency group，但不能阻止其他终端或控制台并发操作。
 
@@ -126,12 +113,10 @@ Time Travel 的 restore 会原地覆盖目标库，取消进行中的查询。�
 
 官方依据（2026-11-23 核对）：[D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/)、[导入与导出](https://developers.cloudflare.com/d1/best-practices/import-export-data/)、[Wrangler D1 命令](https://developers.cloudflare.com/d1/wrangler-commands/)。
 
-## 6. 本轮的边界和下一步
+## 6. 当前检查改动与下一步
 
-本轮新增的是运行准备、只读检查和可审阅规则；没有修改技术文章、知识身份、运行时问答、数据库迁移、Access、DNS、账单或发布权限。合并后不需要为这些文件重新上传私人 Worker，新的手动检查 workflow 才会进入 main。
+本阶段更新只读运维脚本、相应模拟回归和接入说明，没有技术文章、运行时问答、云端资源或数据库迁移变更，不需要重新上传私人 Worker。合并后运行更新后的 **Inspect private Atlas storage**，在原 Environment 审核后核对公共基线和实际 D1；若旧 token 失效，停止后轮换准确 D1 凭据，不扩大权限。
 
-按照上述证据逐项完成第一阶段后，再进入私人「标准提案与完整差异」：读取最新行文/操作规范，去重与已有文章优先，记录证据、选择叙事、安排 Topic/关系/视图和精确 after-image，校验和构建后交 Owner 看具体差异。仍不创建公开 PR 或授予模型 GitHub 写入权限。
+然后按 [一次性发布接入](../runtime/PUBLICATION_SETUP.md) 配置仅安装 Atlas 的 GitHub App 和 Worker Secret，再做真实提案公开 PR、CI、独立确认合并、Pages/索引/检索验收。正常知识 PR 自动触发 CI；手动运行的是当前接入检查和程序部署，不能混为每篇文章都需要手工 Run workflow。
 
-### 单仓库知识 PR 的新增必需检查（接入待办）
-
-单仓库发布控制器接入前，在既有 main Ruleset 中增加 `Validate Orbit knowledge change`，Expected source 仍为 GitHub Actions（15368），保留原有两项。`main-ruleset.json` 是更新后的完整模板，远端规则仍须 Owner 明确保存并核对。普通工程 PR 跳过此知识专属 job；Orbit 的知识 PR 必须真实运行成功，不能把 skipped 当作通过。配置模板和控制器代码均不授予修改仓库设置的权限。
+后续交付顺序见 [AGENT_ROADMAP.md](../../AGENT_ROADMAP.md)：主流程验收、Orbit 内发布确认、基础新文章，再接外部文档粘贴导入。架构建议仍只私有展示，带回设计对话决定；不建立第二个发布通道。

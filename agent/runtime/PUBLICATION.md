@@ -20,6 +20,8 @@
 
 GitHub App 的 repository permissions：Metadata:read（隐含）、Contents:write、Pull requests:write、Actions:read；仅选择 `yuechuanhou/embodied-ai-atlas`，不授予 Workflows/Administration/Actions 写权限。GitHub Contents 权限本身覆盖仓库，路径与操作白名单由确定性服务及 main 保护规则共同限制，不能声称 App 提供了 content/ 目录级授权。该权限需要 Owner 一次性明确安装，不能复用仅供读取的 token 或向模型提供凭据。
 
+一次性操作步骤、密钥格式转换和验收入口见 [PUBLICATION_SETUP.md](PUBLICATION_SETUP.md)。
+
 Worker Secrets：
 
 - `PUBLICATION_APP_PRIVATE_KEY`：本地转换后的 PKCS#8 PEM，仅存服务端。

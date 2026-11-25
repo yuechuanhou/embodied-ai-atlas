@@ -1,6 +1,7 @@
 import {readFile, readdir} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
+import {appliedMigrations, OPTIONAL_MIGRATIONS} from './migration-state.js';
 
 const MIGRATIONS = fileURLToPath(new URL('../../db/migrations/', import.meta.url));
 export const DATABASE_NAME = 'atlas-agent-private';
@@ -23,9 +24,7 @@ export async function inspectStorage({env = process.env, fetchImpl = fetch} = {}
   requireValue(typeof env.CLOUDFLARE_API_TOKEN === 'string' && env.CLOUDFLARE_API_TOKEN.length >= 16, 'storage_token_required');
   const files = (await readdir(MIGRATIONS)).filter(n => /^\d{4}_.+\.sql$/.test(n)).sort();
   requireValue(files.length > 0, 'missing_migrations');
-  const definitions = (await Promise.all(files.map(name => readFile(path.join(MIGRATIONS, name), 'utf8')))).join('\n');
-  const tables = [...definitions.matchAll(/^CREATE TABLE (\w+)\s*\(/gm)].map(m => m[1]);
-  const triggers = [...definitions.matchAll(/^CREATE TRIGGER (\w+)\s*$/gm)].map(m => m[1]);
+  const definitions = new Map(await Promise.all(files.map(async name => [name, await readFile(path.join(MIGRATIONS, name), 'utf8')])));
   const base = 'https://api.cloudflare.com/client/v4/accounts/' + env.CLOUDFLARE_ACCOUNT_ID + '/d1/database/' + env.ATLAS_D1_DATABASE_ID;
   async function request(suffix, sql) {
     let response;
@@ -58,10 +57,18 @@ export async function inspectStorage({env = process.env, fetchImpl = fetch} = {}
   requireValue(database.name === DATABASE_NAME && database.uuid === env.ATLAS_D1_DATABASE_ID, 'database_identity_mismatch');
   requireValue(database.version === 'production', 'time_travel_backend_unverified');
   const schema = await query(READS.schema);
+  const applied = appliedMigrations(files, await query(READS.migrations));
+  requireValue(applied, 'migration_history_mismatch');
+  const sql = applied.map(name => definitions.get(name)).join('\n');
+  const tables = [...sql.matchAll(/^CREATE TABLE (\w+)\s*\(/gm)].map(m => m[1]);
+  const triggers = [...sql.matchAll(/^CREATE TRIGGER (\w+)\s*$/gm)].map(m => m[1]);
   requireValue(['d1_migrations', ...tables].every(name => schema.some(row => row.name === name && row.type === 'table')) &&
     triggers.every(name => schema.some(row => row.name === name && row.type === 'trigger')), 'storage_schema_incomplete');
-  const applied = await query(READS.migrations);
-  requireValue(JSON.stringify(applied.map(row => row.name)) === JSON.stringify(files), 'migration_history_mismatch');
+  // An unrecorded optional migration with leftover objects is not a clean baseline.
+  for (const name of files.filter(name => !applied.includes(name))) {
+    const objects = [...definitions.get(name).matchAll(/^CREATE (?:TABLE|TRIGGER) (\w+)/gm)].map(m => m[1]);
+    requireValue(objects.every(name => !schema.some(row => row.name === name)), 'storage_optional_schema_mismatch');
+  }
   requireValue((await query(READS.foreignKeys)).length === 0, 'storage_foreign_key_check_failed');
   const integrity = await query(READS.integrity);
   requireValue(integrity.length === 1 && Object.values(integrity[0]).length === 1 && Object.values(integrity[0])[0] === 'ok', 'storage_integrity_check_failed');
@@ -69,7 +76,8 @@ export async function inspectStorage({env = process.env, fetchImpl = fetch} = {}
   requireValue(typeof bookmark.bookmark === 'string' && bookmark.bookmark.length >= 8 && bookmark.bookmark.length <= 200, 'storage_bookmark_unavailable');
   // A current bookmark proves neither a plan's retention window nor a restore.
   return {database: DATABASE_NAME, status: 'storage_read_checks_passed', mutations: false,
-    migration_count: files.length, required_schema_objects: 'present', foreign_keys: 'passed', integrity: 'passed',
+    migration_count: applied.length, optional_private_validator_schema: OPTIONAL_MIGRATIONS.every(name => applied.includes(name)) ? 'present' : 'not_applied',
+    required_schema_objects: 'present', foreign_keys: 'passed', integrity: 'passed',
     time_travel: 'current_bookmark_available', retention_window: 'not_inspected', restore_drill: 'pending'};
 }
 

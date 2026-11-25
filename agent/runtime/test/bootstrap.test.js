@@ -4,7 +4,7 @@ import {bootstrap, DATABASE_NAME, migrationConfig} from '../scripts/bootstrap-d1
 
 const account = 'a'.repeat(32), databaseId = '12345678-1234-4234-8234-123456789abc';
 const env = {CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: 'synthetic-test-token'};
-function harness({existing = false, incomplete = false, failure = false} = {}) {
+function harness({existing = false, incomplete = false, failure = false, applied = ['0001_initial.sql', '0002_private_runtime.sql', '0003_proposal_validation.sql']} = {}) {
   const calls = [], migrations = [], masked = [];
   const fetchImpl = async (url, init) => {
     calls.push({url, init});
@@ -16,7 +16,7 @@ function harness({existing = false, incomplete = false, failure = false} = {}) {
     const body = JSON.parse(init.body);
     if (url.endsWith('/database')) {assert.deepEqual(body, {name: DATABASE_NAME}); result = {name: DATABASE_NAME, uuid: databaseId};}
     else if (body.sql.includes('sqlite_master')) result = [{success: true, results: (incomplete ? [] : ['d1_migrations', 'sessions', 'messages', 'approvals', 'knowledge_snapshots', 'runtime_requests', 'runtime_sync']).map(name => ({name}))}];
-    else {assert.equal(body.sql, 'SELECT name FROM d1_migrations ORDER BY name'); result = [{success: true, results: [{name: '0001_initial.sql'}, {name: '0002_private_runtime.sql'}, {name: '0003_proposal_validation.sql'}]}];}
+    else {assert.equal(body.sql, 'SELECT name FROM d1_migrations ORDER BY name'); result = [{success: true, results: applied.map(name => ({name}))}];}
     return Response.json({success: true, result});
   };
   return {calls, migrations, masked, options: {env, fetchImpl, migrate: async id => migrations.push(id), mask: id => masked.push(id)}};
@@ -60,6 +60,18 @@ test('verified reruns inspect migration metadata and never alter an existing dat
   }
   assert.equal(h.migrations.length, 0);
   assert(h.calls.filter(c => c.init.method === 'POST').every(c => JSON.parse(c.init.body).sql.startsWith('SELECT ')));
+});
+
+test('existing two-migration databases remain valid without applying the unused private validator', async () => {
+  const h = harness({existing: true, applied: ['0001_initial.sql', '0002_private_runtime.sql']});
+  const result = await bootstrap({...h.options, env: {...env, ATLAS_D1_DATABASE_ID: databaseId}});
+  assert.equal(result.status, 'existing_schema_verified'); assert.equal(result.migration_count, 2);
+  assert.equal(result.mutations, false); assert.deepEqual(h.migrations, []);
+  for (const applied of [['0001_initial.sql'], ['0001_initial.sql', '0002_private_runtime.sql', 'unknown.sql']]) {
+    const invalid = harness({existing: true, applied});
+    await assert.rejects(bootstrap({...invalid.options, env: {...env, ATLAS_D1_DATABASE_ID: databaseId}}), /migration_history_mismatch/);
+    assert.deepEqual(invalid.migrations, []);
+  }
 });
 
 test('upstream failures and partial initialization fail closed without retry or deletion', async () => {
