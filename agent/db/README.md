@@ -14,6 +14,13 @@ not durable publishing Workflows. Actual recovery windows and an isolated recove
 drill are tracked in [operations readiness](../operations/README.md). A current
 Time Travel bookmark is not evidence that an export or restore has been tested.
 
+`0003_proposal_validation.sql` belongs to the historical optional private validator.
+The current single-repository publisher uses the first two migrations and does not
+need this table. Read-only inspection accepts either complete known history, verifies
+objects for recorded migrations, and rejects unknown/duplicate or missing required
+records. Never apply 0003 to an existing production database merely to satisfy an
+obsolete checker. A new optional service still requires its own reviewed migration.
+
 ## Data ownership and normalization
 
 | Table | Owns |

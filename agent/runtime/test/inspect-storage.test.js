@@ -37,11 +37,41 @@ test('storage inspection issues only fixed reads for the exact existing database
   const h = harness(), result = await inspectStorage(h.options);
   assert.equal(h.calls.length, 6); assert.equal(result.mutations, false); assert.equal(result.migration_count, 3);
   assert.equal(result.status, 'storage_read_checks_passed'); assert.equal(result.required_schema_objects, 'present');
+  assert.equal(result.optional_private_validator_schema, 'present');
   assert.equal(result.retention_window, 'not_inspected'); assert.equal(result.restore_drill, 'pending');
   const output = JSON.stringify(result);
   for (const secret of [account, databaseId, env.CLOUDFLARE_API_TOKEN, 'synthetic-private-bookmark']) assert(!output.includes(secret));
   assert(!h.calls.some(c => /restore|export|workers|access|billing/.test(c.url)));
   assert(h.calls.filter(c => c.init.method === 'POST').every(c => /^(SELECT |PRAGMA (foreign_key_check|quick_check)$)/.test(JSON.parse(c.init.body).sql)));
+});
+
+test('the active single-repository route accepts the original two migrations without optional validator objects', async () => {
+  const h = harness((response, url, init) => {
+    if (!url.endsWith('/query')) return;
+    const sql = JSON.parse(init.body).sql;
+    if (sql === READS.migrations) response.result[0].results.pop();
+    if (sql === READS.schema) response.result[0].results = response.result[0].results.filter(r =>
+      !['proposal_validations', 'immutable_validation_binding'].includes(r.name));
+  });
+  const result = await inspectStorage(h.options);
+  assert.equal(result.status, 'storage_read_checks_passed'); assert.equal(result.migration_count, 2);
+  assert.equal(result.optional_private_validator_schema, 'not_applied'); assert.equal(h.calls.length, 6);
+});
+
+test('an optional migration must be complete and recorded; required, duplicate and unknown history cannot pass', async () => {
+  for (const [sql, mutate, code] of [
+    [READS.migrations, rows => rows.slice(0, 2), 'storage_optional_schema_mismatch'],
+    [READS.schema, rows => rows.filter(r => r.name !== 'immutable_validation_binding'), 'storage_schema_incomplete'],
+    [READS.migrations, rows => rows.slice(1), 'migration_history_mismatch'],
+    [READS.migrations, rows => [...rows, rows[0]], 'migration_history_mismatch'],
+    [READS.migrations, () => [{name: null}], 'migration_history_mismatch'],
+  ]) {
+    const h = harness((response, url, init) => {
+      if (url.endsWith('/query') && JSON.parse(init.body).sql === sql) response.result[0].results = mutate(response.result[0].results);
+    });
+    await assert.rejects(inspectStorage(h.options), new RegExp('^Error: ' + code + '$'));
+    assert(!h.calls.some(c => c.url.includes('bookmark')));
+  }
 });
 
 test('invalid configuration, including placeholder database IDs, is rejected before any request', async () => {

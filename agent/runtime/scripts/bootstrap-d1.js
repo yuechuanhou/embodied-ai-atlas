@@ -3,6 +3,7 @@ import {mkdtemp, readdir, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
+import {appliedMigrations} from './migration-state.js';
 
 export const DATABASE_NAME = 'atlas-agent-private';
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
@@ -85,10 +86,10 @@ export async function bootstrap({mode = 'plan', confirmation = '', env = process
     requireValue(rows.results.some(r => r.name === table), 'database_not_initialized_review_before_retry');
   }
   const applied = await api('/' + database.uuid + '/query', {sql: 'SELECT name FROM d1_migrations ORDER BY name', params: []});
-  requireValue(applied.result?.[0]?.success === true &&
-    JSON.stringify(applied.result[0].results.map(r => r.name)) === JSON.stringify(migrations), 'migration_history_mismatch');
+  const verified = applied.result?.[0]?.success === true && appliedMigrations(migrations, applied.result[0].results);
+  requireValue(verified, 'migration_history_mismatch');
   return {database: DATABASE_NAME, status: created ? 'created_and_initialized' : 'existing_schema_verified',
-    migration_count: migrations.length, mutations: created};
+    migration_count: verified.length, mutations: created};
 }
 
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {

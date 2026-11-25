@@ -24,8 +24,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Test storage inspection with synthetic responses and no credentials
-        run: node --test agent/runtime/test/inspect-storage.test.js
+      - name: Test read-only inspections with synthetic responses and no credentials
+        run: node --test agent/runtime/test/inspect-storage.test.js agent/runtime/test/inspect-publication.test.js
+      - name: Verify public main rules and current knowledge index without credentials
+        run: node agent/runtime/scripts/inspect-publication.js
       - name: Read metadata and verify existing storage without exporting private content
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
